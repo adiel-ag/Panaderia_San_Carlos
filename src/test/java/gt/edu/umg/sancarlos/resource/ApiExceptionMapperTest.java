@@ -1,6 +1,10 @@
 package gt.edu.umg.sancarlos.resource;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import gt.edu.umg.sancarlos.dto.ApiError;
+import gt.edu.umg.sancarlos.dto.DespacharPedidoDTO;
+import java.util.List;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.DespachoConflictoException;
 import gt.edu.umg.sancarlos.exception.DespachoNoEncontradoException;
@@ -25,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ApiExceptionMapperTest {
 
@@ -103,6 +108,25 @@ class ApiExceptionMapperTest {
             assertEquals(409, conflict.getStatus());
             assertEquals("El plan de producción ya fue generado",
                     ((ApiError) conflict.getEntity()).getMessage());
+        }
+    }
+
+    @Test
+    void jsonMalFormadoOConTipoIncorrectoResponde400SinDetalleDelParser() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonProcessingException truncado = assertThrows(JsonProcessingException.class,
+                () -> objectMapper.readValue("{\"idUsuario\":", DespacharPedidoDTO.class));
+        JsonProcessingException tipoIncorrecto = assertThrows(JsonProcessingException.class,
+                () -> objectMapper.readValue("{\"idUsuario\":\"abc\"}", DespacharPedidoDTO.class));
+
+        for (JsonProcessingException exception : List.of(truncado, tipoIncorrecto)) {
+            try (Response response = mapper.toResponse(exception)) {
+                assertEquals(400, response.getStatus());
+                assertEquals(MediaType.APPLICATION_JSON_TYPE, response.getMediaType());
+                String message = ((ApiError) response.getEntity()).getMessage();
+                assertEquals("El cuerpo JSON no es válido.", message);
+                assertFalse(message.contains("line"));
+            }
         }
     }
 

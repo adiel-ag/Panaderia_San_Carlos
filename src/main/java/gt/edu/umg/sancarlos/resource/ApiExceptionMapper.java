@@ -1,5 +1,6 @@
 package gt.edu.umg.sancarlos.resource;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import gt.edu.umg.sancarlos.dto.ApiError;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.DespachoConflictoException;
@@ -31,9 +32,15 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
 
     private static final Logger LOGGER = Logger.getLogger(ApiExceptionMapper.class.getName());
     private static final String ERROR_INTERNO = "Ocurrió un error interno en el servidor.";
+    private static final String JSON_INVALIDO = "El cuerpo JSON no es válido.";
 
     @Override
     public Response toResponse(Exception exception) {
+        if (exception instanceof JsonProcessingException) {
+            // El mensaje de Jackson incluye detalles del parser; se responde con uno fijo.
+            return crearRespuesta(Response.Status.BAD_REQUEST,
+                    "Solicitud inválida", JSON_INVALIDO);
+        }
         if (exception instanceof BadRequestException
                 || exception instanceof IllegalArgumentException
                 || exception instanceof PedidoSolicitudInvalidaException
