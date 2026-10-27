@@ -2,6 +2,9 @@ package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.ApiError;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
+import gt.edu.umg.sancarlos.exception.InventarioConflictoException;
+import gt.edu.umg.sancarlos.exception.InventarioNoEncontradoException;
+import gt.edu.umg.sancarlos.exception.InventarioSolicitudInvalidaException;
 import gt.edu.umg.sancarlos.exception.PedidoConflictoException;
 import gt.edu.umg.sancarlos.exception.PedidoNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.PedidoSolicitudInvalidaException;
@@ -98,6 +101,20 @@ class ApiExceptionMapperTest {
             assertEquals(409, conflict.getStatus());
             assertEquals("El plan de producción ya fue generado",
                     ((ApiError) conflict.getEntity()).getMessage());
+        }
+    }
+
+    @Test
+    void convierteErroresDeInventarioEn400404Y409() {
+        try (Response badRequest = mapper.toResponse(new InventarioSolicitudInvalidaException(
+                        "La cantidad debe ser mayor que cero", new SQLException("ORA-20001")));
+             Response notFound = mapper.toResponse(new InventarioNoEncontradoException(
+                        "Usuario inexistente", new SQLException("ORA-02291")));
+             Response conflict = mapper.toResponse(new InventarioConflictoException(
+                        "Inventario insuficiente", new SQLException("ORA-20003")))) {
+            assertEquals(400, badRequest.getStatus());
+            assertEquals(404, notFound.getStatus());
+            assertEquals(409, conflict.getStatus());
         }
     }
 }

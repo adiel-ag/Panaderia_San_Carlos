@@ -2,6 +2,9 @@ package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.ApiError;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
+import gt.edu.umg.sancarlos.exception.InventarioConflictoException;
+import gt.edu.umg.sancarlos.exception.InventarioNoEncontradoException;
+import gt.edu.umg.sancarlos.exception.InventarioSolicitudInvalidaException;
 import gt.edu.umg.sancarlos.exception.PedidoConflictoException;
 import gt.edu.umg.sancarlos.exception.PedidoNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.PedidoSolicitudInvalidaException;
@@ -32,20 +35,23 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
         if (exception instanceof BadRequestException
                 || exception instanceof IllegalArgumentException
                 || exception instanceof PedidoSolicitudInvalidaException
-                || exception instanceof ProduccionSolicitudInvalidaException) {
+                || exception instanceof ProduccionSolicitudInvalidaException
+                || exception instanceof InventarioSolicitudInvalidaException) {
             return crearRespuesta(Response.Status.BAD_REQUEST,
                     "Solicitud inválida", exception.getMessage());
         }
         if (exception instanceof NotFoundException
                 || exception instanceof RecetaNoEncontradaException
                 || exception instanceof PedidoNoEncontradoException
-                || exception instanceof ProduccionNoEncontradaException) {
+                || exception instanceof ProduccionNoEncontradaException
+                || exception instanceof InventarioNoEncontradoException) {
             return crearRespuesta(Response.Status.NOT_FOUND,
                     "Recurso no encontrado", exception.getMessage());
         }
         if (exception instanceof RecetaAmbiguaException
                 || exception instanceof PedidoConflictoException
-                || exception instanceof ProduccionConflictoException) {
+                || exception instanceof ProduccionConflictoException
+                || exception instanceof InventarioConflictoException) {
             return crearRespuesta(Response.Status.CONFLICT,
                     "Conflicto de negocio", exception.getMessage());
         }
