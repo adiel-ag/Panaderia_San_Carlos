@@ -2,6 +2,8 @@ package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.ApiError;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
+import gt.edu.umg.sancarlos.exception.DespachoConflictoException;
+import gt.edu.umg.sancarlos.exception.DespachoNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.InventarioConflictoException;
 import gt.edu.umg.sancarlos.exception.InventarioNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.InventarioSolicitudInvalidaException;
@@ -101,6 +103,17 @@ class ApiExceptionMapperTest {
             assertEquals(409, conflict.getStatus());
             assertEquals("El plan de producción ya fue generado",
                     ((ApiError) conflict.getEntity()).getMessage());
+        }
+    }
+
+    @Test
+    void convierteErroresDeDespachoEn404Y409() {
+        try (Response notFound = mapper.toResponse(new DespachoNoEncontradoException(
+                        "Pedido inexistente", new SQLException("ORA-01403")));
+             Response conflict = mapper.toResponse(new DespachoConflictoException(
+                        "El pedido aún no está listo para despacho", new SQLException("ORA-20501")))) {
+            assertEquals(404, notFound.getStatus());
+            assertEquals(409, conflict.getStatus());
         }
     }
 

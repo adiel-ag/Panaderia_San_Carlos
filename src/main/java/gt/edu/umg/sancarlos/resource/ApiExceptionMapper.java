@@ -2,6 +2,8 @@ package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.ApiError;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
+import gt.edu.umg.sancarlos.exception.DespachoConflictoException;
+import gt.edu.umg.sancarlos.exception.DespachoNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.InventarioConflictoException;
 import gt.edu.umg.sancarlos.exception.InventarioNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.InventarioSolicitudInvalidaException;
@@ -44,14 +46,16 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
                 || exception instanceof RecetaNoEncontradaException
                 || exception instanceof PedidoNoEncontradoException
                 || exception instanceof ProduccionNoEncontradaException
-                || exception instanceof InventarioNoEncontradoException) {
+                || exception instanceof InventarioNoEncontradoException
+                || exception instanceof DespachoNoEncontradoException) {
             return crearRespuesta(Response.Status.NOT_FOUND,
                     "Recurso no encontrado", exception.getMessage());
         }
         if (exception instanceof RecetaAmbiguaException
                 || exception instanceof PedidoConflictoException
                 || exception instanceof ProduccionConflictoException
-                || exception instanceof InventarioConflictoException) {
+                || exception instanceof InventarioConflictoException
+                || exception instanceof DespachoConflictoException) {
             return crearRespuesta(Response.Status.CONFLICT,
                     "Conflicto de negocio", exception.getMessage());
         }
