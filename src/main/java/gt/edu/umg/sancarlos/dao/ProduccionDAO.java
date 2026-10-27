@@ -34,6 +34,8 @@ public class ProduccionDAO {
              WHERE id_produccion = ?
              ORDER BY id_producto
             """;
+    private static final String SQL_EXISTE =
+            "SELECT COUNT(*) FROM PRODUCCION WHERE id_produccion = ?";
 
     /** Crea una producción y devuelve el identificador generado por Oracle. */
     public long crear(Connection connection, long idUsuario, String observacion)
@@ -64,6 +66,16 @@ public class ProduccionDAO {
         try (CallableStatement statement = connection.prepareCall(SP_GENERAR_PLAN)) {
             statement.setLong(1, idProduccion);
             statement.execute();
+        }
+    }
+
+    /** Indica si existe una producción con el identificador indicado. */
+    public boolean existe(Connection connection, long idProduccion) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(SQL_EXISTE)) {
+            statement.setLong(1, idProduccion);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() && resultSet.getLong(1) > 0;
+            }
         }
     }
 

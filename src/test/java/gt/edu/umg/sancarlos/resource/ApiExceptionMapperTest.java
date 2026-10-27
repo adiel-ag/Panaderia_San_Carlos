@@ -5,6 +5,9 @@ import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.PedidoConflictoException;
 import gt.edu.umg.sancarlos.exception.PedidoNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.PedidoSolicitudInvalidaException;
+import gt.edu.umg.sancarlos.exception.ProduccionConflictoException;
+import gt.edu.umg.sancarlos.exception.ProduccionNoEncontradaException;
+import gt.edu.umg.sancarlos.exception.ProduccionSolicitudInvalidaException;
 import gt.edu.umg.sancarlos.exception.RecetaAmbiguaException;
 import gt.edu.umg.sancarlos.exception.RecetaNoEncontradaException;
 import jakarta.ws.rs.BadRequestException;
@@ -79,6 +82,22 @@ class ApiExceptionMapperTest {
             assertEquals(400, badRequest.getStatus());
             assertEquals(404, notFound.getStatus());
             assertEquals(409, conflict.getStatus());
+        }
+    }
+
+    @Test
+    void convierteErroresDeProduccionEn400404Y409() {
+        try (Response badRequest = mapper.toResponse(new ProduccionSolicitudInvalidaException(
+                        "La cantidad producida debe ser mayor que cero", new SQLException("ORA-20409")));
+             Response notFound = mapper.toResponse(new ProduccionNoEncontradaException(
+                        "Usuario inexistente o inactivo", new SQLException("ORA-20401")));
+             Response conflict = mapper.toResponse(new ProduccionConflictoException(
+                        "El plan de producción ya fue generado", new SQLException("ORA-20407")))) {
+            assertEquals(400, badRequest.getStatus());
+            assertEquals(404, notFound.getStatus());
+            assertEquals(409, conflict.getStatus());
+            assertEquals("El plan de producción ya fue generado",
+                    ((ApiError) conflict.getEntity()).getMessage());
         }
     }
 }

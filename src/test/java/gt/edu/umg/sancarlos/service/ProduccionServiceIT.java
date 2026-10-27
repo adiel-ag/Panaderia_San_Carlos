@@ -1,6 +1,6 @@
 package gt.edu.umg.sancarlos.service;
 
-import gt.edu.umg.sancarlos.exception.DataAccessException;
+import gt.edu.umg.sancarlos.exception.ProduccionNoEncontradaException;
 import java.sql.SQLException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -34,8 +34,8 @@ class ProduccionServiceIT {
 
     @Test
     void rejectsNonexistentUserWithOracleApplicationError() {
-        DataAccessException exception = assertThrows(
-                DataAccessException.class,
+        ProduccionNoEncontradaException exception = assertThrows(
+                ProduccionNoEncontradaException.class,
                 () -> produccionService.crearProduccion(
                         Long.MAX_VALUE,
                         "Prueba de usuario inexistente"

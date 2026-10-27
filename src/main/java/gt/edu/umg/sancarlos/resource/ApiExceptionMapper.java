@@ -5,6 +5,9 @@ import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.PedidoConflictoException;
 import gt.edu.umg.sancarlos.exception.PedidoNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.PedidoSolicitudInvalidaException;
+import gt.edu.umg.sancarlos.exception.ProduccionConflictoException;
+import gt.edu.umg.sancarlos.exception.ProduccionNoEncontradaException;
+import gt.edu.umg.sancarlos.exception.ProduccionSolicitudInvalidaException;
 import gt.edu.umg.sancarlos.exception.RecetaAmbiguaException;
 import gt.edu.umg.sancarlos.exception.RecetaNoEncontradaException;
 import jakarta.ws.rs.BadRequestException;
@@ -28,18 +31,21 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
     public Response toResponse(Exception exception) {
         if (exception instanceof BadRequestException
                 || exception instanceof IllegalArgumentException
-                || exception instanceof PedidoSolicitudInvalidaException) {
+                || exception instanceof PedidoSolicitudInvalidaException
+                || exception instanceof ProduccionSolicitudInvalidaException) {
             return crearRespuesta(Response.Status.BAD_REQUEST,
                     "Solicitud inválida", exception.getMessage());
         }
         if (exception instanceof NotFoundException
                 || exception instanceof RecetaNoEncontradaException
-                || exception instanceof PedidoNoEncontradoException) {
+                || exception instanceof PedidoNoEncontradoException
+                || exception instanceof ProduccionNoEncontradaException) {
             return crearRespuesta(Response.Status.NOT_FOUND,
                     "Recurso no encontrado", exception.getMessage());
         }
         if (exception instanceof RecetaAmbiguaException
-                || exception instanceof PedidoConflictoException) {
+                || exception instanceof PedidoConflictoException
+                || exception instanceof ProduccionConflictoException) {
             return crearRespuesta(Response.Status.CONFLICT,
                     "Conflicto de negocio", exception.getMessage());
         }
