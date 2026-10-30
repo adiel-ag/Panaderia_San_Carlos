@@ -22,6 +22,10 @@ import java.util.Set;
  * Aplica @RolesAllowed, @PermitAll y @DenyAll de cada endpoint. A diferencia
  * del filtro estandar de Jersey, distingue sin sesion (401) de rol sin
  * permiso (403). Se ejecuta despues de SesionFilter.
+ *
+ * Seguro por defecto: un endpoint sin ninguna de esas anotaciones exige una
+ * sesion iniciada (cualquier rol). Solo los marcados con @PermitAll son
+ * publicos, de modo que un endpoint nuevo nunca queda abierto por olvido.
  */
 @Provider
 public class AutorizacionFeature implements DynamicFeature {
@@ -53,17 +57,30 @@ public class AutorizacionFeature implements DynamicFeature {
         }
         if (roles != null) {
             context.register(new FiltroRoles(Set.of(roles.value())));
+        } else {
+            context.register(FiltroRoles.soloSesion());
         }
     }
 
-    /** rolesPermitidos nulo = @DenyAll: nadie pasa. */
+    /** rolesPermitidos nulo y sin cualquierRol = @DenyAll: nadie pasa. */
     @Priority(Priorities.AUTHORIZATION)
     static final class FiltroRoles implements ContainerRequestFilter {
 
         private final Set<String> rolesPermitidos;
+        private final boolean cualquierRol;
 
         FiltroRoles(Set<String> rolesPermitidos) {
+            this(rolesPermitidos, false);
+        }
+
+        private FiltroRoles(Set<String> rolesPermitidos, boolean cualquierRol) {
             this.rolesPermitidos = rolesPermitidos;
+            this.cualquierRol = cualquierRol;
+        }
+
+        /** Endpoint sin anotaciones: basta con tener sesion. */
+        static FiltroRoles soloSesion() {
+            return new FiltroRoles(null, true);
         }
 
         @Override
@@ -72,6 +89,9 @@ public class AutorizacionFeature implements DynamicFeature {
             SesionNoVerificada.exigirVerificada(seguridad);
             if (seguridad == null || !(seguridad.getUserPrincipal() instanceof UsuarioSesion)) {
                 throw new NoAutenticadoException("Debe iniciar sesión.", null);
+            }
+            if (cualquierRol) {
+                return;
             }
             if (rolesPermitidos == null
                     || rolesPermitidos.stream().noneMatch(seguridad::isUserInRole)) {

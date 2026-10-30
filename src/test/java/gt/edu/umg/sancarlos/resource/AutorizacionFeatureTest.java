@@ -67,14 +67,110 @@ class AutorizacionFeatureTest {
     }
 
     @Test
-    void soloRegistraFiltroDondeHayRolesDeclarados() throws Exception {
+    void endpointSinAnotacionExigeSesionYPermitAllQuedaPublico() throws Exception {
         assertEquals(1, registrados(UsuarioResource.class.getMethod("asignarClave", String.class,
                 AsignarClaveDTO.class), UsuarioResource.class).size(), "@RolesAllowed");
         assertTrue(registrados(AuthResource.class.getMethod("iniciarSesion",
                 gt.edu.umg.sancarlos.dto.LoginDTO.class, HttpServletRequest.class), AuthResource.class)
                 .isEmpty(), "@PermitAll");
-        assertTrue(registrados(ProductoResource.class.getMethod("listarProductos"), ProductoResource.class)
-                .isEmpty(), "sin anotacion: la parte 3 decidira");
+        assertEquals(1, registrados(ProductoResource.class.getMethod("listarProductos"),
+                ProductoResource.class).size(), "sin anotacion: exige sesion");
+    }
+
+    @Test
+    void filtroSoloSesionAceptaCualquierRolPeroExigeSesion() {
+        AutorizacionFeature.FiltroRoles soloSesion = AutorizacionFeature.FiltroRoles.soloSesion();
+
+        assertThrows(NoAutenticadoException.class, () -> soloSesion.filter(contexto(null)));
+        for (String rol : new String[]{"ADMINISTRADOR", "GERENTE", "SUCURSAL", "PRODUCCION", "BODEGA", "DESPACHO"}) {
+            assertDoesNotThrow(() -> soloSesion.filter(contexto(usuario(rol))), rol);
+        }
+    }
+
+    /**
+     * Recorre todos los endpoints del proyecto: solo los de la lista son
+     * publicos; cualquier otro, incluido uno nuevo, debe exigir sesion.
+     */
+    @Test
+    void ningunEndpointQuedaPublicoFueraDeLaListaPermitida() throws Exception {
+        Set<String> publicosPermitidos = Set.of(
+                "HealthResource.health",
+                "AuthResource.iniciarSesion",
+                "AuthResource.cerrarSesion",
+                "AuthResource.usuarioActual");
+        Set<String> publicos = new java.util.TreeSet<>();
+        int protegidos = 0;
+        for (Class<?> clase : clasesDeRecursos()) {
+            for (java.lang.reflect.Method metodo : clase.getDeclaredMethods()) {
+                if (!esEndpoint(metodo)) {
+                    continue;
+                }
+                if (registrados(metodo, clase).isEmpty()) {
+                    publicos.add(clase.getSimpleName() + "." + metodo.getName());
+                } else {
+                    protegidos++;
+                }
+            }
+        }
+        assertEquals(new java.util.TreeSet<>(publicosPermitidos), publicos);
+        assertTrue(protegidos >= 17, "se esperaban al menos 17 endpoints protegidos, hay " + protegidos);
+    }
+
+    @Test
+    void jerseyExigeSesionEnEndpointsSinAnotacionYHealthSigueAbierto() {
+        assertEquals(401, get("productos", null).getStatus());
+        assertEquals(200, get("productos", usuario("BODEGA")).getStatus());
+        assertEquals(200, get("health", null).getStatus());
+    }
+
+    private static ContainerResponse get(String ruta, UsuarioSesion usuario) {
+        gt.edu.umg.sancarlos.service.ProductoService productos = new gt.edu.umg.sancarlos.service.ProductoService() {
+            @Override
+            public List<gt.edu.umg.sancarlos.model.Producto> listarProductos() {
+                return List.of();
+            }
+        };
+        ApplicationHandler handler = new ApplicationHandler(new ResourceConfig()
+                .register(new ProductoResource(productos))
+                .register(HealthResource.class)
+                .register(new SesionDePrueba(usuario))
+                .register(AutorizacionFeature.class)
+                .register(JacksonObjectMapperProvider.class)
+                .register(ApiExceptionMapper.class));
+        URI base = URI.create("http://localhost/api/");
+        try {
+            return handler.apply(new ContainerRequest(base, base.resolve(ruta), "GET", null,
+                    new MapPropertiesDelegate(), null)).get();
+        } catch (Exception exception) {
+            throw new AssertionError(exception);
+        }
+    }
+
+    private static boolean esEndpoint(java.lang.reflect.Method metodo) {
+        return java.util.Arrays.stream(metodo.getAnnotations())
+                .anyMatch(a -> a.annotationType().isAnnotationPresent(jakarta.ws.rs.HttpMethod.class));
+    }
+
+    /** Clases con @Path del paquete resource, leidas de las clases compiladas. */
+    private static List<Class<?>> clasesDeRecursos() throws Exception {
+        java.nio.file.Path carpeta = java.nio.file.Path.of(
+                HealthResource.class.getProtectionDomain().getCodeSource().getLocation().toURI())
+                .resolve("gt/edu/umg/sancarlos/resource");
+        List<Class<?>> clases = new ArrayList<>();
+        try (java.util.stream.Stream<java.nio.file.Path> archivos = java.nio.file.Files.list(carpeta)) {
+            for (java.nio.file.Path archivo : archivos.toList()) {
+                String nombre = archivo.getFileName().toString();
+                if (nombre.endsWith(".class") && !nombre.contains("$")) {
+                    Class<?> clase = Class.forName("gt.edu.umg.sancarlos.resource."
+                            + nombre.substring(0, nombre.length() - ".class".length()));
+                    if (clase.isAnnotationPresent(jakarta.ws.rs.Path.class)) {
+                        clases.add(clase);
+                    }
+                }
+            }
+        }
+        assertTrue(clases.size() >= 9, "no se encontraron las clases de recursos: " + clases);
+        return clases;
     }
 
     @Test

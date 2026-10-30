@@ -14,16 +14,25 @@
     Ademas del camino feliz, provoca los errores de negocio esperados (409/404/400)
     para comprobar que Oracle los rechaza sin dejar cambios parciales.
 
+    La API exige sesion: el script inicia sesion con -Usuario y pide la contrasena sin
+    mostrarla (o la recibe como SecureString en -Clave). Las operaciones se registran a
+    nombre de ese usuario. Las escrituras exigen un usuario ADMINISTRADOR, el unico rol
+    que puede pedir, producir, ajustar inventario y despachar: con otro rol el script
+    solo permite -SoloVerificar y se niega a escribir. Al terminar cierra la sesion.
+
 .EXAMPLE
-    .\scripts\prueba-flujo-completo.ps1 -SoloVerificar
+    .\scripts\prueba-flujo-completo.ps1 -Usuario admin -SoloVerificar
 .EXAMPLE
-    .\scripts\prueba-flujo-completo.ps1
+    .\scripts\prueba-flujo-completo.ps1 -Usuario admin
 .EXAMPLE
-    .\scripts\prueba-flujo-completo.ps1 -BaseUrl http://localhost:8080/panaderia/api -Cantidad 5
+    .\scripts\prueba-flujo-completo.ps1 -Usuario admin -BaseUrl http://localhost:8080/panaderia/api -Cantidad 5
 #>
 param(
+    [Parameter(Mandatory = $true)]
+    [string]  $Usuario,             # usuario con el que se inicia sesion (ADMINISTRADOR)
+    [System.Security.SecureString] $Clave,  # si se omite, se pide sin mostrarla
     [string]  $BaseUrl    = "http://localhost:8080/api",
-    [long]    $IdUsuario  = 1,      # ADMINISTRADOR: puede pedir para cualquier sucursal
+    [long]    $IdUsuario  = 0,      # 0 = el usuario de la sesion
     [long]    $IdSucursal = 1,      # CENTRAL
     [long]    $IdProducto = 33,     # ESPECIAL: producto final con receta activa
     [decimal] $Cantidad   = 10,
@@ -34,7 +43,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Net.Http
-$cliente = New-Object System.Net.Http.HttpClient
+# El manejador guarda la cookie de sesion (JSESSIONID) y la envia en cada peticion.
+$manejador = New-Object System.Net.Http.HttpClientHandler
+$manejador.CookieContainer = New-Object System.Net.CookieContainer
+$manejador.UseCookies = $true
+$cliente = New-Object System.Net.Http.HttpClient($manejador)
 $script:ok = 0
 $script:fallas = 0
 $marca = "PRUEBA FLUJO " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
@@ -89,6 +102,48 @@ function Obtener-EstadoPedido([long] $Id) {
 
 function Titulo([string] $Texto) { Write-Host ""; Write-Host "== $Texto ==" -ForegroundColor Cyan }
 
+$script:sesionAbierta = $false
+function Cerrar-Sesion {
+    if ($script:sesionAbierta) {
+        try { [void] (Invoke-Api POST "/auth/logout") } catch { }
+        $script:sesionAbierta = $false
+    }
+}
+
+# Un error fuera del bloque try principal (p. ej. en la verificacion previa)
+# tambien cierra la sesion antes de terminar.
+trap { Cerrar-Sesion; $cliente.Dispose(); break }
+
+# ---------------------------------------------------------------- Inicio de sesion
+Titulo "Inicio de sesion"
+if ($null -eq $Clave) {
+    $Clave = Read-Host "  Contrasena de $Usuario" -AsSecureString
+}
+$puntero = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Clave)
+try {
+    $login = Invoke-Api POST "/auth/login" @{
+        username = $Usuario
+        password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($puntero)
+    }
+} finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($puntero)
+}
+if ($login.Status -ne 200) {
+    $motivo = if ($login.Datos -and $login.Datos.message) { $login.Datos.message } else { "HTTP $($login.Status)" }
+    Write-Host "  No se pudo iniciar sesion: $motivo No se escribio nada." -ForegroundColor Red
+    $cliente.Dispose()
+    exit 1
+}
+$script:sesionAbierta = $true
+$usuarioSesion = $login.Datos
+Comprobar "login como $($usuarioSesion.username) (rol $($usuarioSesion.rol))" $true
+Requerir-Status (Invoke-Api GET "/auth/me") 200 "GET /auth/me con la cookie de sesion"
+if ($IdUsuario -le 0) { $IdUsuario = [long] $usuarioSesion.idUsuario }
+$esAdministrador = $usuarioSesion.rol -eq "ADMINISTRADOR"
+if (-not $esAdministrador) {
+    Write-Host "  Aviso: con el rol $($usuarioSesion.rol) solo se permite -SoloVerificar; las escrituras exigen ADMINISTRADOR." -ForegroundColor Yellow
+}
+
 # ---------------------------------------------------------------- 0. Verificacion (solo lectura)
 Titulo "0. Verificacion previa (solo lectura)"
 Requerir-Status (Invoke-Api GET "/health") 200 "GET /health"
@@ -104,7 +159,7 @@ foreach ($i in $Insumos) { $insumosInicial[$i] = Obtener-Existencia $i }
 
 Write-Host ""
 Write-Host "  API:        $BaseUrl"
-Write-Host "  Usuario:    $IdUsuario   Sucursal: $IdSucursal"
+Write-Host "  Usuario:    $($usuarioSesion.username) (id $IdUsuario, rol $($usuarioSesion.rol))   Sucursal: $IdSucursal"
 Write-Host "  Producto:   $IdProducto ($($producto.Datos.nombre))   Cantidad: $Cantidad   Existencia: $existenciaInicial"
 Write-Host ("  Insumos:    " + (($Insumos | ForEach-Object { "$_=$($insumosInicial[$_])" }) -join ", "))
 Write-Host "  Marca:      $marca"
@@ -115,13 +170,24 @@ Write-Host "  Estos cambios en Oracle son PERMANENTES." -ForegroundColor Yellow
 if ($SoloVerificar) {
     Write-Host ""
     Write-Host "Solo verificacion: comprobaciones OK $script:ok, fallas $script:fallas. No se escribio nada."
+    Cerrar-Sesion
     $cliente.Dispose()
     if ($script:fallas -gt 0) { exit 1 } else { exit 0 }
 }
 
+# Las escrituras son permanentes: solo un ADMINISTRADOR puede ejecutarlas desde
+# este script, aunque la API todavia no aplique la matriz de roles.
+if (-not $esAdministrador) {
+    Write-Host ""
+    Write-Host "  El flujo completo exige un usuario ADMINISTRADOR; $($usuarioSesion.username) tiene rol $($usuarioSesion.rol). No se escribio nada." -ForegroundColor Red
+    Cerrar-Sesion
+    $cliente.Dispose()
+    exit 1
+}
+
 if (-not $Confirmar) {
     $respuestaUsuario = Read-Host "  Escribe SI para continuar"
-    if ($respuestaUsuario -ne "SI") { Write-Host "Cancelado. No se escribio nada."; exit 0 }
+    if ($respuestaUsuario -ne "SI") { Write-Host "Cancelado. No se escribio nada."; Cerrar-Sesion; $cliente.Dispose(); exit 0 }
 }
 
 try {
@@ -227,6 +293,7 @@ finally {
     Write-Host "  Comprobaciones OK: $script:ok   Fallas: $script:fallas"
     Write-Host "  Registros creados (observacion '$marca'):"
     Write-Host "    pedido=$idPedido  produccion=$idProduccion  despacho=$idDespacho"
+    Cerrar-Sesion
     $cliente.Dispose()
 }
 
