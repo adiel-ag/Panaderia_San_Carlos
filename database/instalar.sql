@@ -5,6 +5,9 @@
 WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK
 SET ECHO OFF
 SET DEFINE OFF
+-- Los scripts de tablas tienen lineas en blanco entre restricciones; sin esto
+-- SQL*Plus corta la sentencia en la primera linea en blanco y no crea la tabla.
+SET SQLBLANKLINES ON
 
 PROMPT === 1/3 Tablas
 @@01_tablas/01_rol.sql
@@ -23,6 +26,7 @@ PROMPT === 1/3 Tablas
 @@01_tablas/14_inventario.sql
 @@01_tablas/15_movimiento_inventario.sql
 @@01_tablas/16_despacho.sql
+@@01_tablas/17_usuario_credencial.sql
 
 PROMPT === 2/3 Datos iniciales
 @@02_datos_iniciales.sql
@@ -41,6 +45,8 @@ SHOW ERRORS PACKAGE BODY PKG_PEDIDO
 SHOW ERRORS PACKAGE BODY PKG_PRODUCCION
 @@03_paquetes/05_pkg_despacho.sql
 SHOW ERRORS PACKAGE BODY PKG_DESPACHO
+@@03_paquetes/06_pkg_seguridad.sql
+SHOW ERRORS PACKAGE BODY PKG_SEGURIDAD
 
 PROMPT === Verificacion
 -- Falla (y el script termina con error) si falta un objeto esperado, si alguno
@@ -57,12 +63,13 @@ BEGIN
                'TABLE:USUARIO', 'TABLE:PRODUCTO', 'TABLE:RECETA', 'TABLE:RECETA_DETALLE',
                'TABLE:PEDIDO', 'TABLE:PEDIDO_DETALLE', 'TABLE:PRODUCCION',
                'TABLE:PRODUCCION_PEDIDO', 'TABLE:PRODUCCION_DETALLE', 'TABLE:INVENTARIO',
-               'TABLE:MOVIMIENTO_INVENTARIO', 'TABLE:DESPACHO',
+               'TABLE:MOVIMIENTO_INVENTARIO', 'TABLE:DESPACHO', 'TABLE:USUARIO_CREDENCIAL',
                'PACKAGE:PKG_RECETA', 'PACKAGE BODY:PKG_RECETA',
                'PACKAGE:PKG_INVENTARIO', 'PACKAGE BODY:PKG_INVENTARIO',
                'PACKAGE:PKG_PEDIDO', 'PACKAGE BODY:PKG_PEDIDO',
                'PACKAGE:PKG_PRODUCCION', 'PACKAGE BODY:PKG_PRODUCCION',
-               'PACKAGE:PKG_DESPACHO', 'PACKAGE BODY:PKG_DESPACHO'))
+               'PACKAGE:PKG_DESPACHO', 'PACKAGE BODY:PKG_DESPACHO',
+               'PACKAGE:PKG_SEGURIDAD', 'PACKAGE BODY:PKG_SEGURIDAD'))
          WHERE NOT EXISTS (
                SELECT 1 FROM user_objects o
                 WHERE o.object_type = SUBSTR(column_value, 1, INSTR(column_value, ':') - 1)
@@ -87,5 +94,5 @@ BEGIN
 END;
 /
 
-PROMPT === Instalacion terminada: 16 tablas y 5 paquetes validos
+PROMPT === Instalacion terminada: 17 tablas y 6 paquetes validos
 EXIT SUCCESS
