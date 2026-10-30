@@ -11,6 +11,8 @@ import gt.edu.umg.sancarlos.exception.CuentaBloqueadaException;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
 import gt.edu.umg.sancarlos.exception.UsuarioNoEncontradoException;
+import gt.edu.umg.sancarlos.exception.UsuarioConflictoException;
+import gt.edu.umg.sancarlos.exception.UsuarioSolicitudInvalidaException;
 import gt.edu.umg.sancarlos.exception.DespachoConflictoException;
 import gt.edu.umg.sancarlos.exception.DespachoNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.InventarioConflictoException;
@@ -42,6 +44,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class ApiExceptionMapperTest {
 
     private final ApiExceptionMapper mapper = new ApiExceptionMapper();
+
+    @Test
+    void erroresDeUsuarioResponden400404Y409() {
+        try (Response invalida = mapper.toResponse(new UsuarioSolicitudInvalidaException("Datos inválidos", null));
+             Response ausente = mapper.toResponse(new UsuarioNoEncontradoException("Usuario inexistente", null));
+             Response conflicto = mapper.toResponse(new UsuarioConflictoException("Usuario duplicado", null))) {
+            assertEquals(400, invalida.getStatus());
+            assertEquals(404, ausente.getStatus());
+            assertEquals(409, conflicto.getStatus());
+        }
+    }
 
     @Test
     void serializaErroresRestComoJsonConCodigoCorrecto() {

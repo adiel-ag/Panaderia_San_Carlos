@@ -3,6 +3,10 @@ package gt.edu.umg.sancarlos.resource;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
 import gt.edu.umg.sancarlos.dto.ExistenciaDTO;
 import gt.edu.umg.sancarlos.dto.RecetaActivaDTO;
+import gt.edu.umg.sancarlos.dto.ActualizarUsuarioDTO;
+import gt.edu.umg.sancarlos.dto.CrearUsuarioDTO;
+import gt.edu.umg.sancarlos.dto.Pagina;
+import gt.edu.umg.sancarlos.dto.UsuarioDTO;
 import gt.edu.umg.sancarlos.model.Despacho;
 import gt.edu.umg.sancarlos.model.Pedido;
 import gt.edu.umg.sancarlos.model.Producto;
@@ -15,6 +19,12 @@ import gt.edu.umg.sancarlos.service.ProduccionService;
 import gt.edu.umg.sancarlos.service.ProductoService;
 import gt.edu.umg.sancarlos.service.RecetaService;
 import gt.edu.umg.sancarlos.service.AutenticacionService;
+import gt.edu.umg.sancarlos.service.AutenticacionService.SesionIniciada;
+import gt.edu.umg.sancarlos.service.CatalogoService;
+import gt.edu.umg.sancarlos.service.UsuarioService;
+import java.time.LocalDateTime;
+import org.glassfish.hk2.utilities.binding.AbstractBinder;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.annotation.Priority;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
@@ -83,6 +93,15 @@ class MatrizRolesTest {
             Map.entry("InventarioResource.registrarSalida", Set.of(ADMIN, BODEGA)),
             Map.entry("DespachoResource.despacharPedido", Set.of(ADMIN, DESPACHO)),
             Map.entry("DespachoResource.buscarDespacho", Set.of(ADMIN, GERENTE, SUCURSAL, DESPACHO)),
+            Map.entry("RolResource.listarRoles", TODOS),
+            Map.entry("SucursalResource.listarSucursales", TODOS),
+            Map.entry("AuthResource.cambiarClave", TODOS),
+            Map.entry("UsuarioResource.listarUsuarios", Set.of(ADMIN)),
+            Map.entry("UsuarioResource.buscarUsuario", Set.of(ADMIN)),
+            Map.entry("UsuarioResource.crearUsuario", Set.of(ADMIN)),
+            Map.entry("UsuarioResource.actualizarUsuario", Set.of(ADMIN)),
+            Map.entry("UsuarioResource.cambiarEstado", Set.of(ADMIN)),
+            Map.entry("UsuarioResource.desbloquear", Set.of(ADMIN)),
             Map.entry("UsuarioResource.asignarClave", Set.of(ADMIN)));
 
     private static final Map<String, CasoHttp> CASOS_HTTP = Map.ofEntries(
@@ -102,6 +121,15 @@ class MatrizRolesTest {
             Map.entry("InventarioResource.registrarSalida", new CasoHttp("POST", "inventario/productos/33/salidas", "{\"cantidad\":1}")),
             Map.entry("DespachoResource.despacharPedido", new CasoHttp("POST", "pedidos/2/despacho", null)),
             Map.entry("DespachoResource.buscarDespacho", new CasoHttp("GET", "pedidos/2/despacho", null)),
+            Map.entry("RolResource.listarRoles", new CasoHttp("GET", "roles", null)),
+            Map.entry("SucursalResource.listarSucursales", new CasoHttp("GET", "sucursales", null)),
+            Map.entry("AuthResource.cambiarClave", new CasoHttp("PUT", "auth/clave", "{\"claveActual\":\"anterior-1\",\"claveNueva\":\"nueva-clave-1\"}")),
+            Map.entry("UsuarioResource.listarUsuarios", new CasoHttp("GET", "usuarios", null)),
+            Map.entry("UsuarioResource.buscarUsuario", new CasoHttp("GET", "usuarios/7", null)),
+            Map.entry("UsuarioResource.crearUsuario", new CasoHttp("POST", "usuarios", "{\"nombre\":\"Ana\",\"username\":\"ana\",\"rol\":\"GERENTE\",\"password\":\"clave-nueva-1\"}")),
+            Map.entry("UsuarioResource.actualizarUsuario", new CasoHttp("PUT", "usuarios/7", "{\"nombre\":\"Ana\",\"rol\":\"GERENTE\"}")),
+            Map.entry("UsuarioResource.cambiarEstado", new CasoHttp("PUT", "usuarios/7/estado", "{\"estado\":\"ACTIVO\"}")),
+            Map.entry("UsuarioResource.desbloquear", new CasoHttp("POST", "usuarios/7/desbloquear", null)),
             Map.entry("UsuarioResource.asignarClave", new CasoHttp("PUT", "usuarios/7/clave", "{\"password\":\"clave-de-prueba\"}")));
 
     @Test
@@ -194,6 +222,7 @@ class MatrizRolesTest {
     }
 
     private static int llamar(String rol, String metodo, String ruta, String json) {
+        PeticionFalsa peticion = new PeticionFalsa();
         ApplicationHandler handler = new ApplicationHandler(new ResourceConfig()
                 .register(new ProductoResource(new ProductoService() {
                     @Override
@@ -285,11 +314,42 @@ class MatrizRolesTest {
                         return List.of();
                     }
                 }))
+                .register(new RolResource(new CatalogoService() {
+                    @Override public List<gt.edu.umg.sancarlos.dto.RolDTO> roles() { return List.of(); }
+                }))
+                .register(new SucursalResource(new CatalogoService() {
+                    @Override public List<gt.edu.umg.sancarlos.dto.SucursalDTO> sucursales() { return List.of(); }
+                }))
+                .register(new AuthResource(new AutenticacionService() {
+                    @Override public SesionIniciada cambiarClave(UsuarioSesion usuario,
+                            char[] actual, char[] nueva) {
+                        return new SesionIniciada(usuario, LocalDateTime.of(2026, 10, 30, 9, 0));
+                    }
+                }))
                 .register(new UsuarioResource(new AutenticacionService() {
                     @Override
                     public void establecerClave(long idUsuario, char[] clave) {
                     }
+                }, new UsuarioService() {
+                    private UsuarioDTO usuario() {
+                        return new UsuarioDTO(7, "Ana", "ana", GERENTE, null, null,
+                                "ACTIVO", null, null, false, true);
+                    }
+                    @Override public Pagina<UsuarioDTO> listar(int pagina, int tamano,
+                            String filtroRol, String estado, Long idSucursal) {
+                        return new Pagina<>(List.of(usuario()), 1, pagina, tamano);
+                    }
+                    @Override public UsuarioDTO buscarPorId(long id) { return usuario(); }
+                    @Override public UsuarioDTO crear(CrearUsuarioDTO solicitud, char[] clave) { return usuario(); }
+                    @Override public UsuarioDTO actualizar(long id, ActualizarUsuarioDTO solicitud) { return usuario(); }
+                    @Override public UsuarioDTO cambiarEstado(long id, String estado) { return usuario(); }
+                    @Override public UsuarioDTO desbloquear(long id) { return usuario(); }
                 }))
+                .register(new AbstractBinder() {
+                    @Override protected void configure() {
+                        bind(peticion.request).to(HttpServletRequest.class);
+                    }
+                })
                 .register(new SesionConRol(rol))
                 .register(AutorizacionFeature.class)
                 .register(JacksonObjectMapperProvider.class)
@@ -338,7 +398,7 @@ class MatrizRolesTest {
                     .map(n -> cargar("gt.edu.umg.sancarlos.resource." + n.substring(0, n.length() - 6)))
                     .filter(c -> c.isAnnotationPresent(Path.class))
                     .collect(Collectors.toList());
-            assertTrue(clases.size() >= 9, "clases de recursos: " + clases);
+            assertTrue(clases.size() >= 11, "clases de recursos: " + clases);
             return clases;
         }
     }

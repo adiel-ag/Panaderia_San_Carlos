@@ -47,6 +47,8 @@ SHOW ERRORS PACKAGE BODY PKG_PRODUCCION
 SHOW ERRORS PACKAGE BODY PKG_DESPACHO
 @@03_paquetes/06_pkg_seguridad.sql
 SHOW ERRORS PACKAGE BODY PKG_SEGURIDAD
+@@03_paquetes/07_pkg_usuario.sql
+SHOW ERRORS PACKAGE BODY PKG_USUARIO
 
 PROMPT === Verificacion
 -- Falla (y el script termina con error) si falta un objeto esperado, si alguno
@@ -69,7 +71,8 @@ BEGIN
                'PACKAGE:PKG_PEDIDO', 'PACKAGE BODY:PKG_PEDIDO',
                'PACKAGE:PKG_PRODUCCION', 'PACKAGE BODY:PKG_PRODUCCION',
                'PACKAGE:PKG_DESPACHO', 'PACKAGE BODY:PKG_DESPACHO',
-               'PACKAGE:PKG_SEGURIDAD', 'PACKAGE BODY:PKG_SEGURIDAD'))
+               'PACKAGE:PKG_SEGURIDAD', 'PACKAGE BODY:PKG_SEGURIDAD',
+               'PACKAGE:PKG_USUARIO', 'PACKAGE BODY:PKG_USUARIO'))
          WHERE NOT EXISTS (
                SELECT 1 FROM user_objects o
                 WHERE o.object_type = SUBSTR(column_value, 1, INSTR(column_value, ':') - 1)
@@ -94,5 +97,5 @@ BEGIN
 END;
 /
 
-PROMPT === Instalacion terminada: 17 tablas y 6 paquetes validos
+PROMPT === Instalacion terminada: 17 tablas y 7 paquetes validos
 EXIT SUCCESS

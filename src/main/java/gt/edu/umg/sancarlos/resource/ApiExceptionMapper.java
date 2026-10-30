@@ -8,6 +8,8 @@ import gt.edu.umg.sancarlos.exception.CuentaBloqueadaException;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
 import gt.edu.umg.sancarlos.exception.UsuarioNoEncontradoException;
+import gt.edu.umg.sancarlos.exception.UsuarioConflictoException;
+import gt.edu.umg.sancarlos.exception.UsuarioSolicitudInvalidaException;
 import gt.edu.umg.sancarlos.exception.DespachoConflictoException;
 import gt.edu.umg.sancarlos.exception.DespachoNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.InventarioConflictoException;
@@ -73,7 +75,8 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
                 || exception instanceof IllegalArgumentException
                 || exception instanceof PedidoSolicitudInvalidaException
                 || exception instanceof ProduccionSolicitudInvalidaException
-                || exception instanceof InventarioSolicitudInvalidaException) {
+                || exception instanceof InventarioSolicitudInvalidaException
+                || exception instanceof UsuarioSolicitudInvalidaException) {
             return crearRespuesta(Response.Status.BAD_REQUEST,
                     "Solicitud inválida", exception.getMessage());
         }
@@ -91,7 +94,8 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
                 || exception instanceof PedidoConflictoException
                 || exception instanceof ProduccionConflictoException
                 || exception instanceof InventarioConflictoException
-                || exception instanceof DespachoConflictoException) {
+                || exception instanceof DespachoConflictoException
+                || exception instanceof UsuarioConflictoException) {
             return crearRespuesta(Response.Status.CONFLICT,
                     "Conflicto de negocio", exception.getMessage());
         }

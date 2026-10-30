@@ -8,6 +8,7 @@ import gt.edu.umg.sancarlos.exception.CredencialesInvalidasException;
 import gt.edu.umg.sancarlos.exception.CuentaBloqueadaException;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.UsuarioNoEncontradoException;
+import gt.edu.umg.sancarlos.exception.UsuarioSolicitudInvalidaException;
 import gt.edu.umg.sancarlos.model.UsuarioSesion;
 import gt.edu.umg.sancarlos.service.AutenticacionService.SesionIniciada;
 import gt.edu.umg.sancarlos.util.HuellaClave;
@@ -193,6 +194,50 @@ class AutenticacionServiceTest {
         assertTrue(servicio.obtenerSesionVigente(1, INICIO).isEmpty(), "clave cambiada despues");
     }
 
+    @Test
+    void cambiarClaveIncorrectaConfirmaIntentoYRespondeSolicitudInvalida() {
+        DaoFalso dao = new DaoFalso();
+        dao.resultados.add(new ResultadoAcceso(null, 1));
+        char[] actual = "incorrecta".toCharArray();
+        char[] nueva = "nueva-clave".toCharArray();
+
+        UsuarioSolicitudInvalidaException error = assertThrows(
+                UsuarioSolicitudInvalidaException.class,
+                () -> servicio(dao).cambiarClave(ADMIN, actual, nueva));
+
+        assertEquals("La contraseña actual no es correcta", error.getMessage());
+        assertTrue(eventos.contains("commit"));
+        assertEquals(null, dao.idEstablecido);
+        assertTrue(java.util.Arrays.equals(new char[actual.length], actual));
+        assertTrue(java.util.Arrays.equals(new char[nueva.length], nueva));
+    }
+
+    @Test
+    void cambiarClaveCorrectaDevuelveFechaCambioParaRenovarSesion() {
+        DaoFalso dao = new DaoFalso();
+        dao.resultados.add(new ResultadoAcceso(1L, 0));
+
+        SesionIniciada sesion = servicio(dao).cambiarClave(ADMIN,
+                "secreta1".toCharArray(), "nueva-clave".toCharArray());
+
+        assertEquals(1L, dao.idEstablecido);
+        assertEquals(INICIO.plusSeconds(1), sesion.inicio());
+        assertSame(ADMIN, sesion.usuario());
+        assertEquals(2, eventos.stream().filter("commit"::equals).count());
+    }
+
+    @Test
+    void cambiarClaveValidaNuevaAntesDeOracle() {
+        DaoFalso dao = new DaoFalso();
+        assertThrows(IllegalArgumentException.class,
+                () -> servicio(dao).cambiarClave(ADMIN, "anterior".toCharArray(),
+                        "corta".toCharArray()));
+        assertThrows(IllegalArgumentException.class,
+                () -> servicio(dao).cambiarClave(ADMIN, "misma-clave".toCharArray(),
+                        "misma-clave".toCharArray()));
+        assertTrue(eventos.isEmpty());
+    }
+
     private AutenticacionService servicio(SeguridadDAO dao) {
         return new AutenticacionService(dao, this::conexion, 7);
     }
@@ -267,6 +312,7 @@ class AutenticacionServiceTest {
             iteracionesEstablecidas = iteraciones;
             saltEstablecido = salt;
             huellaEstablecida = huella;
+            perfil = Optional.of(new PerfilAcceso(ADMIN, INICIO.plusSeconds(1), INICIO));
         }
 
         @Override

@@ -134,7 +134,7 @@ class AutorizacionFeatureTest {
             }
         }
         assertEquals(new java.util.TreeSet<>(publicosPermitidos), publicos);
-        assertTrue(protegidos >= 17, "se esperaban al menos 17 endpoints protegidos, hay " + protegidos);
+        assertTrue(protegidos >= 26, "se esperaban al menos 26 endpoints protegidos, hay " + protegidos);
     }
 
     @Test
@@ -190,7 +190,7 @@ class AutorizacionFeatureTest {
                 }
             }
         }
-        assertTrue(clases.size() >= 9, "no se encontraron las clases de recursos: " + clases);
+        assertTrue(clases.size() >= 11, "no se encontraron las clases de recursos: " + clases);
         return clases;
     }
 

@@ -9,11 +9,13 @@ import gt.edu.umg.sancarlos.exception.CredencialesInvalidasException;
 import gt.edu.umg.sancarlos.exception.CuentaBloqueadaException;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.UsuarioNoEncontradoException;
+import gt.edu.umg.sancarlos.exception.UsuarioSolicitudInvalidaException;
 import gt.edu.umg.sancarlos.model.UsuarioSesion;
 import gt.edu.umg.sancarlos.util.HuellaClave;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Optional;
 
 /**
@@ -132,15 +134,13 @@ public class AutenticacionService {
         if (idUsuario <= 0) {
             throw new IllegalArgumentException("El ID de usuario debe ser positivo");
         }
-        HuellaClave.validarNueva(clave);
-        String salt = HuellaClave.generarSalt();
-        String huella = HuellaClave.calcular(clave, salt, iteracionesNuevas);
+        HuellaClave.Nueva nueva = HuellaClave.calcularNueva(clave, iteracionesNuevas);
 
         try (Connection connection = conexiones.abrir()) {
             connection.setAutoCommit(false);
             try {
                 seguridadDAO.establecerClave(connection, idUsuario, HuellaClave.ALGORITMO,
-                        iteracionesNuevas, salt, huella);
+                        iteracionesNuevas, nueva.salt(), nueva.huella());
                 connection.commit();
             } catch (SQLException | RuntimeException exception) {
                 rollback(connection, exception);
@@ -156,6 +156,44 @@ public class AutenticacionService {
             }
         } catch (SQLException exception) {
             throw new DataAccessException("No fue posible asignar la contraseña", exception);
+        }
+    }
+
+    /** Comprueba la clave actual, guarda la nueva y devuelve el inicio vigente. */
+    public SesionIniciada cambiarClave(UsuarioSesion usuario, char[] claveActual,
+            char[] claveNueva) {
+        try {
+            HuellaClave.validarNueva(claveNueva);
+            if (claveActual == null || Arrays.equals(claveActual, claveNueva)) {
+                throw new IllegalArgumentException(
+                        "La nueva contraseña debe ser distinta de la actual");
+            }
+            SesionIniciada acceso;
+            try {
+                acceso = iniciarSesion(usuario.getUsername(), claveActual);
+            } catch (CredencialesInvalidasException exception) {
+                throw new UsuarioSolicitudInvalidaException(
+                        "La contraseña actual no es correcta", exception);
+            }
+            if (acceso.usuario().getIdUsuario() != usuario.getIdUsuario()) {
+                throw new UsuarioSolicitudInvalidaException(
+                        "La contraseña actual no es correcta", null);
+            }
+            establecerClave(usuario.getIdUsuario(), claveNueva);
+            try (Connection connection = conexiones.abrir()) {
+                PerfilAcceso perfil = seguridadDAO.buscarPerfil(connection, usuario.getIdUsuario())
+                        .orElseThrow(() -> new UsuarioNoEncontradoException(
+                                "El usuario no existe", null));
+                if (perfil.fechaCambioClave() == null) {
+                    throw new DataAccessException("No fue posible renovar la sesión", null);
+                }
+                return new SesionIniciada(perfil.usuario(), perfil.fechaCambioClave());
+            } catch (SQLException exception) {
+                throw new DataAccessException("No fue posible renovar la sesión", exception);
+            }
+        } finally {
+            if (claveActual != null) Arrays.fill(claveActual, '\0');
+            if (claveNueva != null) Arrays.fill(claveNueva, '\0');
         }
     }
 

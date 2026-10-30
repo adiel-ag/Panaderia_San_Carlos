@@ -32,6 +32,16 @@ public final class HuellaClave {
         return Base64.getEncoder().encodeToString(salt);
     }
 
+    /** Parametros y huella de una clave nueva; nunca se exponen por REST. */
+    public record Nueva(String salt, String huella) {
+    }
+
+    public static Nueva calcularNueva(char[] clave, int iteraciones) {
+        validarNueva(clave);
+        String salt = generarSalt();
+        return new Nueva(salt, calcular(clave, salt, iteraciones));
+    }
+
     /** El salt llega en Base64 tal como se guarda en USUARIO_CREDENCIAL. */
     public static String calcular(char[] clave, String salt, int iteraciones) {
         if (clave == null) {

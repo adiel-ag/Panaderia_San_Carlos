@@ -1,6 +1,7 @@
 package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.LoginDTO;
+import gt.edu.umg.sancarlos.dto.CambiarClaveDTO;
 import gt.edu.umg.sancarlos.dto.MensajeDTO;
 import gt.edu.umg.sancarlos.exception.CredencialesInvalidasException;
 import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
@@ -78,6 +79,33 @@ class AuthResourceTest {
         assertEquals(1L, nueva.atributos.get(SesionUsuario.ATRIBUTO_ID_USUARIO));
         assertEquals(INICIO, nueva.atributos.get(SesionUsuario.ATRIBUTO_INICIO));
         assertArrayEquals(new char[8], claveRecibida[0], "la clave se borra de memoria al terminar");
+    }
+
+    @Test
+    void cambiarClaveRenuevaSesionConFechaDeCambio() {
+        LocalDateTime cambio = INICIO.plusMinutes(2);
+        AutenticacionService service = new AutenticacionService() {
+            @Override public SesionIniciada cambiarClave(UsuarioSesion usuario,
+                    char[] actual, char[] nueva) {
+                assertSame(ADMIN, usuario);
+                assertArrayEquals("anterior-1".toCharArray(), actual);
+                assertArrayEquals("nueva-clave-1".toCharArray(), nueva);
+                return new SesionIniciada(ADMIN, cambio);
+            }
+        };
+        PeticionFalsa peticion = new PeticionFalsa();
+        PeticionFalsa.SesionFalsa anterior = sesionCon(peticion, 1L);
+
+        try (Response respuesta = new AuthResource(service).cambiarClave(
+                new CambiarClaveDTO("anterior-1", "nueva-clave-1"),
+                new UsuarioSecurityContext(ADMIN, false), peticion.request)) {
+            assertEquals(200, respuesta.getStatus());
+            assertEquals("Contraseña actualizada", ((MensajeDTO) respuesta.getEntity()).getMensaje());
+        }
+        assertTrue(anterior.invalidada);
+        assertNotSame(anterior, peticion.sesionActual());
+        assertEquals(1L, peticion.sesionActual().atributos.get(SesionUsuario.ATRIBUTO_ID_USUARIO));
+        assertEquals(cambio, peticion.sesionActual().atributos.get(SesionUsuario.ATRIBUTO_INICIO));
     }
 
     @Test

@@ -1,7 +1,7 @@
 # Base de datos
 
 Scripts para crear desde cero la base de datos Oracle de Panadería San Carlos:
-17 tablas, los catálogos iniciales y los 6 paquetes de reglas de negocio.
+17 tablas, los catálogos iniciales y los 7 paquetes de reglas de negocio.
 
 Esta carpeta es la versión de referencia de los scripts. Se verificó contra la
 base de datos real el 2026-10-29: columnas, tipos, valores por defecto, las 69
@@ -14,7 +14,7 @@ restricciones y el código de los paquetes coinciden. `USUARIO_CREDENCIAL` y
 | --- | --- |
 | `01_tablas/` | Las 17 tablas, numeradas en el orden en que deben crearse (cada una después de las tablas a las que apunta). |
 | `02_datos_iniciales.sql` | Roles, sucursales, unidades de medida y tipos de producto. |
-| `03_paquetes/` | `PKG_RECETA`, `PKG_INVENTARIO`, `PKG_PEDIDO`, `PKG_PRODUCCION`, `PKG_DESPACHO` y `PKG_SEGURIDAD`, cada uno con su especificación y su cuerpo. |
+| `03_paquetes/` | `PKG_RECETA`, `PKG_INVENTARIO`, `PKG_PEDIDO`, `PKG_PRODUCCION`, `PKG_DESPACHO`, `PKG_SEGURIDAD` y `PKG_USUARIO`, cada uno con su especificación y su cuerpo. |
 | `instalar.sql` | Ejecuta todo lo anterior en orden y verifica que todo quedó válido. |
 | `migraciones/` | Cambios para aplicar a una base ya instalada, con su script para revertirlos. |
 
@@ -41,9 +41,9 @@ iniciales se guarden correctamente. Sin esa variable, SQL*Plus en Windows
 puede convertirlas en caracteres ilegibles.
 
 Al final, `instalar.sql` verifica que existan y estén válidas las 17 tablas y
-los 6 paquetes (especificación y cuerpo), y que estén cargados los tipos de
+los 7 paquetes (especificación y cuerpo), y que estén cargados los tipos de
 producto. La instalación terminó bien **solo** si aparece
-`Instalacion terminada: 17 tablas y 6 paquetes validos` y SQL*Plus se cierra
+`Instalacion terminada: 17 tablas y 7 paquetes validos` y SQL*Plus se cierra
 solo con código 0. En los dos casos SQL*Plus termina por sí mismo; no queda
 esperando en su prompt.
 
@@ -62,6 +62,8 @@ uno, desde la carpeta `database`:
 | Migración | Qué agrega | Para revertir |
 | --- | --- | --- |
 | `001_seguridad.sql` | Tabla `USUARIO_CREDENCIAL` y paquete `PKG_SEGURIDAD` (inicio de sesión). No modifica nada existente. | `001_seguridad_revertir.sql` (borra todas las contraseñas guardadas) |
+| `002_usuarios.sql` | Paquete `PKG_USUARIO` para crear, editar, activar, desactivar y desbloquear usuarios. No modifica tablas ni datos. | `002_usuarios_revertir.sql` (elimina solo el paquete) |
+| `003_password_hash_opcional.sql` | Quita el `NOT NULL` de la columna heredada `USUARIO.PASSWORD_HASH`, si existe. Conserva los valores actuales. | `003_password_hash_opcional_revertir.sql` (solo si ningún usuario la tiene vacía) |
 
 ```bat
 cd database
@@ -72,6 +74,22 @@ sqlplus usuario/contraseña@... @migraciones/001_seguridad.sql
 Igual que el instalador, termina con código 0 y el mensaje `Migracion 001
 aplicada` solo si los objetos nuevos quedaron válidos; si la tabla ya existe,
 se detiene antes de tocar el paquete.
+
+Después de 001, aplica `migraciones/002_usuarios.sql` desde `database`.
+Termina con `Migracion 002 aplicada: PKG_USUARIO valido` solo si la
+especificación y el cuerpo quedaron válidos. El paquete no hace `COMMIT`;
+la aplicación confirma o revierte cada operación. Sus errores son -20701
+datos inválidos, -20702 usuario duplicado, -20703 rol inexistente o inactivo,
+-20704 sucursal incompatible, -20705 usuario inexistente, -20706 último
+administrador activo y -20707 usuario sin contraseña asignada.
+
+Después de 002, aplica `migraciones/003_password_hash_opcional.sql`. Algunas
+bases instaladas con los scripts originales tienen la columna
+`USUARIO.PASSWORD_HASH` como obligatoria, con un mismo texto de relleno en
+todos los usuarios. Nada la usa (las contraseñas están en
+`USUARIO_CREDENCIAL`), pero impide crear usuarios desde la API (ORA-01400).
+La migración solo la vuelve opcional; en una base creada con `instalar.sql`
+la columna no existe y no cambia nada.
 
 ## Inicio de sesión
 
@@ -103,7 +121,8 @@ real se corrigieron tres puntos:
 1. **`09_pedido.sql`:** la regla `ck_pedido_estado` no incluía `LISTO_DESPACHO`,
    estado que la base real admite y que usan `PKG_PRODUCCION` y `PKG_DESPACHO`.
 2. **`05_usuario.sql`:** no existía script de la tabla `USUARIO`; se reconstruyó
-   a partir de la definición de la base real.
+   a partir de la definición de la base real, sin la columna heredada
+   `PASSWORD_HASH`, que nada usa (ver migración 003).
 3. **`02_datos_iniciales.sql`:** no se cargaban los tipos de producto `INSUMO` y
    `PRODUCTO_FINAL`, de los que depende `PKG_PEDIDO`.
 
