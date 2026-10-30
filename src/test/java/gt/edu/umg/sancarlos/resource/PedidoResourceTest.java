@@ -1,6 +1,7 @@
 package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
+import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
 import gt.edu.umg.sancarlos.model.Pedido;
 import gt.edu.umg.sancarlos.model.PedidoDetalle;
 import gt.edu.umg.sancarlos.service.PedidoService;
@@ -10,6 +11,7 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriInfo;
 import java.lang.reflect.Proxy;
@@ -30,7 +32,8 @@ class PedidoResourceTest {
     @Test
     void exponeCreacionYConsultaPorId() throws Exception {
         assertEquals("/pedidos", PedidoResource.class.getAnnotation(Path.class).value());
-        var create = PedidoResource.class.getMethod("crearPedido", CrearPedidoDTO.class, UriInfo.class);
+        var create = PedidoResource.class.getMethod("crearPedido", CrearPedidoDTO.class, UriInfo.class,
+                SecurityContext.class);
         var find = PedidoResource.class.getMethod("buscarPedidoPorId", String.class);
         assertNotNull(create.getAnnotation(POST.class));
         assertNotNull(find.getAnnotation(GET.class));
@@ -42,16 +45,28 @@ class PedidoResourceTest {
         PedidoService service = new PedidoService() {
             @Override
             public long crearPedido(CrearPedidoDTO solicitud) {
+                assertEquals(7, solicitud.getIdUsuario(), "el usuario sale de la sesion");
                 return 501;
             }
         };
         CrearPedidoDTO request = new CrearPedidoDTO();
+        request.setIdUsuario(999);
 
-        try (Response response = new PedidoResource(service).crearPedido(request, uriInfo())) {
+        try (Response response = new PedidoResource(service).crearPedido(request, uriInfo(),
+                SesionDePrueba.usuario(7, "SUCURSAL"))) {
             assertEquals(201, response.getStatus());
             assertEquals(URI.create("http://localhost:8080/panaderia/api/pedidos/501"),
                     response.getLocation());
         }
+    }
+
+    @Test
+    void crearPedidoExigeCuerpoYSesion() {
+        PedidoResource resource = new PedidoResource(new PedidoService());
+        assertThrows(BadRequestException.class,
+                () -> resource.crearPedido(null, uriInfo(), SesionDePrueba.usuario(7, "SUCURSAL")));
+        assertThrows(NoAutenticadoException.class,
+                () -> resource.crearPedido(new CrearPedidoDTO(), uriInfo(), null));
     }
 
     @Test

@@ -15,6 +15,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriInfo;
 
 /** Endpoints REST del despacho de un pedido; las reglas las resuelve PKG_DESPACHO. */
@@ -36,13 +37,12 @@ public class DespachoResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({Roles.ADMINISTRADOR, Roles.DESPACHO})
     public Response despacharPedido(@PathParam("id") String id, DespacharPedidoDTO solicitud,
-            @Context UriInfo uriInfo) {
+            @Context UriInfo uriInfo, @Context SecurityContext seguridad) {
         long idPedido = parsearIdPedido(id);
-        if (solicitud == null) {
-            throw new BadRequestException("El cuerpo de la solicitud es obligatorio.");
-        }
+        // El cuerpo es opcional: solo trae la observacion.
+        String observacion = solicitud == null ? null : solicitud.getObservacion();
         Despacho despacho = despachoService.despacharPedido(
-                idPedido, solicitud.getIdUsuario(), solicitud.getObservacion());
+                idPedido, UsuarioActual.id(seguridad), observacion);
         return Response.created(uriInfo.getAbsolutePath()).entity(despacho).build();
     }
 

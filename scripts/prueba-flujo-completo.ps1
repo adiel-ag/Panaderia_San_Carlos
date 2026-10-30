@@ -16,7 +16,8 @@
 
     La API exige sesion: el script inicia sesion con -Usuario y pide la contrasena sin
     mostrarla (o la recibe como SecureString en -Clave). Las operaciones se registran a
-    nombre de ese usuario. Las escrituras exigen un usuario ADMINISTRADOR, el unico rol
+    nombre de ese usuario: la API toma el usuario de la sesion e ignora cualquier idUsuario
+    del JSON. Las escrituras exigen un usuario ADMINISTRADOR, el unico rol
     que puede pedir, producir, ajustar inventario y despachar: con otro rol el script
     solo permite -SoloVerificar y se niega a escribir. Al terminar cierra la sesion.
 
@@ -32,7 +33,6 @@ param(
     [string]  $Usuario,             # usuario con el que se inicia sesion (ADMINISTRADOR)
     [System.Security.SecureString] $Clave,  # si se omite, se pide sin mostrarla
     [string]  $BaseUrl    = "http://localhost:8080/api",
-    [long]    $IdUsuario  = 0,      # 0 = el usuario de la sesion
     [long]    $IdSucursal = 1,      # CENTRAL
     [long]    $IdProducto = 33,     # ESPECIAL: producto final con receta activa
     [decimal] $Cantidad   = 10,
@@ -138,7 +138,6 @@ $script:sesionAbierta = $true
 $usuarioSesion = $login.Datos
 Comprobar "login como $($usuarioSesion.username) (rol $($usuarioSesion.rol))" $true
 Requerir-Status (Invoke-Api GET "/auth/me") 200 "GET /auth/me con la cookie de sesion"
-if ($IdUsuario -le 0) { $IdUsuario = [long] $usuarioSesion.idUsuario }
 $esAdministrador = $usuarioSesion.rol -eq "ADMINISTRADOR"
 if (-not $esAdministrador) {
     Write-Host "  Aviso: con el rol $($usuarioSesion.rol) solo se permite -SoloVerificar; las escrituras exigen ADMINISTRADOR." -ForegroundColor Yellow
@@ -159,7 +158,7 @@ foreach ($i in $Insumos) { $insumosInicial[$i] = Obtener-Existencia $i }
 
 Write-Host ""
 Write-Host "  API:        $BaseUrl"
-Write-Host "  Usuario:    $($usuarioSesion.username) (id $IdUsuario, rol $($usuarioSesion.rol))   Sucursal: $IdSucursal"
+Write-Host "  Usuario:    $($usuarioSesion.username) (id $($usuarioSesion.idUsuario), rol $($usuarioSesion.rol))   Sucursal: $IdSucursal"
 Write-Host "  Producto:   $IdProducto ($($producto.Datos.nombre))   Cantidad: $Cantidad   Existencia: $existenciaInicial"
 Write-Host ("  Insumos:    " + (($Insumos | ForEach-Object { "$_=$($insumosInicial[$_])" }) -join ", "))
 Write-Host "  Marca:      $marca"
@@ -196,7 +195,6 @@ try {
     $fechaEntrega = (Get-Date).AddDays(1).ToString("yyyy-MM-dd")
     $r = Invoke-Api POST "/pedidos" @{
         idSucursal   = $IdSucursal
-        idUsuario    = $IdUsuario
         fechaEntrega = $fechaEntrega
         observacion  = $marca
         detalles     = @(@{ idProducto = $IdProducto; cantidad = $Cantidad })
@@ -208,7 +206,7 @@ try {
 
     # ------------------------------------------------------------ 2. Produccion
     Titulo "2. Crear produccion y asociar pedido"
-    $r = Invoke-Api POST "/producciones" @{ idUsuario = $IdUsuario; observacion = $marca }
+    $r = Invoke-Api POST "/producciones" @{ observacion = $marca }
     Requerir-Status $r 201 "POST /producciones"
     $idProduccion = [long] $r.Datos.idProduccion
     Write-Host "  idProduccion = $idProduccion"
@@ -229,7 +227,7 @@ try {
     Comprobar "pedido pasa a EN_PRODUCCION" ((Obtener-EstadoPedido $idPedido) -eq "EN_PRODUCCION")
 
     Esperar-Status (Invoke-Api POST "/producciones/$idProduccion/generar-plan") 409 "generar plan otra vez (20405)"
-    Esperar-Status (Invoke-Api POST "/pedidos/$idPedido/despacho" @{ idUsuario = $IdUsuario }) 409 "despachar antes de producir (20501)"
+    Esperar-Status (Invoke-Api POST "/pedidos/$idPedido/despacho") 409 "despachar antes de producir (20501)"
     Esperar-Status (Invoke-Api PUT "/producciones/$idProduccion/productos/999999/cantidad-producida" @{ cantidadProducida = 1 }) 404 "producir un producto ajeno al plan (20411)"
     Esperar-Status (Invoke-Api PUT "/producciones/$idProduccion/productos/$IdProducto/cantidad-producida" @{ cantidadProducida = 0 }) 400 "cantidad producida 0"
 
@@ -238,7 +236,7 @@ try {
     $rutaProducido = "/producciones/$idProduccion/productos/$IdProducto/cantidad-producida"
     if ($Cantidad -gt 1) {
         Requerir-Status (Invoke-Api PUT $rutaProducido @{ cantidadProducida = ($Cantidad - 1) }) 200 "registrar cantidad menor a la planificada"
-        Esperar-Status (Invoke-Api POST "/producciones/$idProduccion/finalizar" @{ idUsuario = $IdUsuario }) 409 "finalizar con produccion incompleta (20413)"
+        Esperar-Status (Invoke-Api POST "/producciones/$idProduccion/finalizar") 409 "finalizar con produccion incompleta (20413)"
         Comprobar "el intento fallido no movio inventario" ((Obtener-Existencia $IdProducto) -eq $existenciaInicial)
     }
     Requerir-Status (Invoke-Api PUT $rutaProducido @{ cantidadProducida = $Cantidad }) 200 "registrar cantidad completa (reemplaza el valor anterior)"
@@ -246,7 +244,7 @@ try {
     $linea = @($r.Datos) | Where-Object { $_.idProducto -eq $IdProducto } | Select-Object -First 1
     Comprobar "cantidad producida = $Cantidad (no acumula)" ([decimal] $linea.cantidadProducida -eq $Cantidad)
 
-    Requerir-Status (Invoke-Api POST "/producciones/$idProduccion/finalizar" @{ idUsuario = $IdUsuario }) 200 "finalizar produccion"
+    Requerir-Status (Invoke-Api POST "/producciones/$idProduccion/finalizar") 200 "finalizar produccion"
     $existenciaProducida = Obtener-Existencia $IdProducto
     Comprobar "producto terminado +$Cantidad ($existenciaInicial -> $existenciaProducida)" ($existenciaProducida -eq $existenciaInicial + $Cantidad)
     foreach ($i in $Insumos) {
@@ -254,24 +252,26 @@ try {
         Comprobar "insumo $i consumido ($($insumosInicial[$i]) -> $actual)" ($actual -lt $insumosInicial[$i])
     }
     Comprobar "pedido pasa a LISTO_DESPACHO" ((Obtener-EstadoPedido $idPedido) -eq "LISTO_DESPACHO")
-    Esperar-Status (Invoke-Api POST "/producciones/$idProduccion/finalizar" @{ idUsuario = $IdUsuario }) 409 "finalizar otra vez (20412)"
+    Esperar-Status (Invoke-Api POST "/producciones/$idProduccion/finalizar") 409 "finalizar otra vez (20412)"
 
     # ------------------------------------------------------------ 5. Inventario manual
     Titulo "5. Ajustes manuales de inventario"
-    $r = Invoke-Api POST "/inventario/productos/$IdProducto/entradas" @{ idUsuario = $IdUsuario; cantidad = 1; observacion = $marca }
+    $r = Invoke-Api POST "/inventario/productos/$IdProducto/entradas" @{ cantidad = 1; observacion = $marca }
     Requerir-Status $r 200 "entrada +1 (AJUSTE)"
     Comprobar "existencia devuelta = $($existenciaProducida + 1)" ([decimal] $r.Datos.existencia -eq $existenciaProducida + 1)
-    $r = Invoke-Api POST "/inventario/productos/$IdProducto/salidas" @{ idUsuario = $IdUsuario; cantidad = 1; observacion = $marca }
+    $r = Invoke-Api POST "/inventario/productos/$IdProducto/salidas" @{ cantidad = 1; observacion = $marca }
     Requerir-Status $r 200 "salida -1 (AJUSTE)"
     Comprobar "existencia vuelve a $existenciaProducida" ([decimal] $r.Datos.existencia -eq $existenciaProducida)
-    Esperar-Status (Invoke-Api POST "/inventario/productos/$IdProducto/salidas" @{ idUsuario = $IdUsuario; cantidad = 99999999 }) 409 "salida mayor a la existencia (20003)"
-    Esperar-Status (Invoke-Api POST "/inventario/productos/$IdProducto/entradas" @{ idUsuario = 999999; cantidad = 1 }) 404 "entrada con usuario inexistente (ORA-02291)"
-    Esperar-Status (Invoke-Api POST "/inventario/productos/999999999/entradas" @{ idUsuario = $IdUsuario; cantidad = 1 }) 404 "entrada a producto inexistente"
-    Comprobar "los rechazos no movieron inventario" ((Obtener-Existencia $IdProducto) -eq $existenciaProducida)
+    Esperar-Status (Invoke-Api POST "/inventario/productos/$IdProducto/salidas" @{ cantidad = 99999999 }) 409 "salida mayor a la existencia (20003)"
+    $r = Invoke-Api POST "/inventario/productos/$IdProducto/entradas" @{ idUsuario = 999999; cantidad = 1; observacion = $marca }
+    Requerir-Status $r 200 "idUsuario falso en el JSON se ignora: entrada a nombre de la sesion"
+    Requerir-Status (Invoke-Api POST "/inventario/productos/$IdProducto/salidas" @{ cantidad = 1; observacion = $marca }) 200 "salida -1 que compensa esa entrada"
+    Esperar-Status (Invoke-Api POST "/inventario/productos/999999999/entradas" @{ cantidad = 1 }) 404 "entrada a producto inexistente"
+    Comprobar "existencia sin cambios tras los rechazos y la compensacion" ((Obtener-Existencia $IdProducto) -eq $existenciaProducida)
 
     # ------------------------------------------------------------ 6. Despacho
     Titulo "6. Despachar pedido"
-    $r = Invoke-Api POST "/pedidos/$idPedido/despacho" @{ idUsuario = $IdUsuario; observacion = $marca }
+    $r = Invoke-Api POST "/pedidos/$idPedido/despacho" @{ observacion = $marca }
     Requerir-Status $r 201 "despachar pedido"
     $idDespacho = [long] $r.Datos.idDespacho
     Write-Host "  idDespacho = $idDespacho"
@@ -281,7 +281,7 @@ try {
     Comprobar "pedido pasa a DESPACHADO" ((Obtener-EstadoPedido $idPedido) -eq "DESPACHADO")
     $existenciaFinal = Obtener-Existencia $IdProducto
     Comprobar "producto vuelve a la existencia inicial ($existenciaFinal = $existenciaInicial)" ($existenciaFinal -eq $existenciaInicial)
-    Esperar-Status (Invoke-Api POST "/pedidos/$idPedido/despacho" @{ idUsuario = $IdUsuario }) 409 "despachar otra vez (20501)"
+    Esperar-Status (Invoke-Api POST "/pedidos/$idPedido/despacho") 409 "despachar otra vez (20501)"
 }
 catch {
     $script:fallas++

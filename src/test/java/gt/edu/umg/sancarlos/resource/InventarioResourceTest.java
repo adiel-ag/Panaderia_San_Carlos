@@ -13,6 +13,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.sql.SQLException;
@@ -39,13 +40,13 @@ class InventarioResourceTest {
         assertEquals("productos/{idProducto}/existencia", existencia.getAnnotation(Path.class).value());
 
         Method entrada = InventarioResource.class.getMethod("registrarEntrada",
-                String.class, MovimientoInventarioDTO.class);
+                String.class, MovimientoInventarioDTO.class, SecurityContext.class);
         assertNotNull(entrada.getAnnotation(POST.class));
         assertEquals("productos/{idProducto}/entradas", entrada.getAnnotation(Path.class).value());
         assertEquals(MediaType.APPLICATION_JSON, entrada.getAnnotation(Consumes.class).value()[0]);
 
         Method salida = InventarioResource.class.getMethod("registrarSalida",
-                String.class, MovimientoInventarioDTO.class);
+                String.class, MovimientoInventarioDTO.class, SecurityContext.class);
         assertNotNull(salida.getAnnotation(POST.class));
         assertEquals("productos/{idProducto}/salidas", salida.getAnnotation(Path.class).value());
     }
@@ -107,8 +108,8 @@ class InventarioResourceTest {
         };
         InventarioResource resource = new InventarioResource(service);
 
-        try (Response entrada = resource.registrarEntrada("35", movimiento("5", "Conteo físico"));
-             Response salida = resource.registrarSalida("35", movimiento("5", null))) {
+        try (Response entrada = resource.registrarEntrada("35", movimiento("5", "Conteo físico"), SesionDePrueba.usuario(7, "BODEGA"));
+             Response salida = resource.registrarSalida("35", movimiento("5", null), SesionDePrueba.usuario(7, "BODEGA"))) {
             assertEquals(200, entrada.getStatus());
             assertEquals(new BigDecimal("20"),
                     assertInstanceOf(ExistenciaDTO.class, entrada.getEntity()).getExistencia());
@@ -124,13 +125,13 @@ class InventarioResourceTest {
 
         assertThrows(BadRequestException.class, () -> resource.consultarExistencia("abc"));
         assertThrows(BadRequestException.class, () -> resource.consultarExistencia("0"));
-        assertThrows(BadRequestException.class, () -> resource.registrarEntrada("-1", movimiento("1", null)));
-        assertThrows(BadRequestException.class, () -> resource.registrarEntrada("35", null));
-        assertThrows(BadRequestException.class, () -> resource.registrarSalida("35", null));
+        assertThrows(BadRequestException.class, () -> resource.registrarEntrada("-1", movimiento("1", null), SesionDePrueba.usuario(7, "BODEGA")));
+        assertThrows(BadRequestException.class, () -> resource.registrarEntrada("35", null, SesionDePrueba.usuario(7, "BODEGA")));
+        assertThrows(BadRequestException.class, () -> resource.registrarSalida("35", null, SesionDePrueba.usuario(7, "BODEGA")));
         assertThrows(BadRequestException.class,
-                () -> resource.registrarEntrada("35", new MovimientoInventarioDTO()));
-        assertThrows(BadRequestException.class, () -> resource.registrarEntrada("35", movimiento("0", null)));
-        assertThrows(BadRequestException.class, () -> resource.registrarSalida("35", movimiento("-2", null)));
+                () -> resource.registrarEntrada("35", new MovimientoInventarioDTO(), SesionDePrueba.usuario(7, "BODEGA")));
+        assertThrows(BadRequestException.class, () -> resource.registrarEntrada("35", movimiento("0", null), SesionDePrueba.usuario(7, "BODEGA")));
+        assertThrows(BadRequestException.class, () -> resource.registrarSalida("35", movimiento("-2", null), SesionDePrueba.usuario(7, "BODEGA")));
     }
 
     @Test
@@ -145,7 +146,8 @@ class InventarioResourceTest {
         };
 
         InventarioConflictoException exception = assertThrows(InventarioConflictoException.class,
-                () -> new InventarioResource(service).registrarSalida("35", movimiento("500", null)));
+                () -> new InventarioResource(service).registrarSalida("35", movimiento("500", null),
+                        SesionDePrueba.usuario(7, "BODEGA")));
         try (Response response = mapper.toResponse(exception)) {
             assertEquals(409, response.getStatus());
             assertFalse(((ApiError) response.getEntity()).getMessage().contains("ORA-"));
@@ -154,7 +156,6 @@ class InventarioResourceTest {
 
     private static MovimientoInventarioDTO movimiento(String cantidad, String observacion) {
         MovimientoInventarioDTO dto = new MovimientoInventarioDTO();
-        dto.setIdUsuario(7);
         dto.setCantidad(new BigDecimal(cantidad));
         dto.setObservacion(observacion);
         return dto;

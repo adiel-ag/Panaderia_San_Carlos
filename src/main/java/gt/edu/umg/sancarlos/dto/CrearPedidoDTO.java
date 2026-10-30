@@ -1,5 +1,6 @@
 package gt.edu.umg.sancarlos.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -8,6 +9,8 @@ import java.util.List;
 public class CrearPedidoDTO {
 
     private long idSucursal;
+    /** Lo fija el servidor con el usuario de la sesion; si llega en el JSON se ignora. */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private long idUsuario;
     private LocalDate fechaEntrega;
     private String observacion;

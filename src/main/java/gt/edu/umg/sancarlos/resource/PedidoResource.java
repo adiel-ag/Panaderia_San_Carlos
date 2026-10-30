@@ -15,6 +15,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriInfo;
 import java.util.Optional;
 
@@ -36,7 +37,13 @@ public class PedidoResource {
     @POST
     @jakarta.ws.rs.Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({Roles.ADMINISTRADOR, Roles.SUCURSAL})
-    public Response crearPedido(CrearPedidoDTO solicitud, @Context UriInfo uriInfo) {
+    public Response crearPedido(CrearPedidoDTO solicitud, @Context UriInfo uriInfo,
+            @Context SecurityContext seguridad) {
+        if (solicitud == null) {
+            throw new BadRequestException("El cuerpo de la solicitud es obligatorio.");
+        }
+        // El pedido se registra a nombre del usuario de la sesion, nunca del JSON.
+        solicitud.setIdUsuario(UsuarioActual.id(seguridad));
         long idPedido = pedidoService.crearPedido(solicitud);
         return Response.created(uriInfo.getAbsolutePathBuilder()
                         .path(Long.toString(idPedido)).build())

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import gt.edu.umg.sancarlos.dto.ApiError;
 import gt.edu.umg.sancarlos.dto.DespacharPedidoDTO;
 import gt.edu.umg.sancarlos.exception.DespachoConflictoException;
+import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
 import gt.edu.umg.sancarlos.model.Despacho;
 import gt.edu.umg.sancarlos.model.Pedido;
 import gt.edu.umg.sancarlos.service.DespachoService;
@@ -16,6 +17,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriInfo;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -49,7 +51,7 @@ class DespachoResourceTest {
     void exponeRutasYMetodosHttp() throws Exception {
         assertEquals("/pedidos/{id}/despacho", DespachoResource.class.getAnnotation(Path.class).value());
         Method despachar = DespachoResource.class.getMethod("despacharPedido",
-                String.class, DespacharPedidoDTO.class, UriInfo.class);
+                String.class, DespacharPedidoDTO.class, UriInfo.class, SecurityContext.class);
         assertNotNull(despachar.getAnnotation(POST.class));
         assertEquals(MediaType.APPLICATION_JSON, despachar.getAnnotation(Consumes.class).value()[0]);
         assertNotNull(DespachoResource.class.getMethod("buscarDespacho", String.class)
@@ -70,16 +72,34 @@ class DespachoResourceTest {
             }
         };
         DespacharPedidoDTO solicitud = new DespacharPedidoDTO();
-        solicitud.setIdUsuario(7);
         solicitud.setObservacion("Ruta norte");
 
         try (Response response = new DespachoResource(service)
-                .despacharPedido("501", solicitud, uriInfo())) {
+                .despacharPedido("501", solicitud, uriInfo(), SesionDePrueba.usuario(7, "DESPACHO"))) {
             assertEquals(201, response.getStatus());
             assertEquals(DESPACHO_URI, response.getLocation());
             assertSame(despacho, response.getEntity());
         }
         assertEquals(List.of(501L, 7L, "Ruta norte"), llamadas);
+    }
+
+    @Test
+    void despacharSinCuerpoUsaObservacionNulaYElUsuarioDeLaSesion() {
+        List<Object> llamadas = new ArrayList<>();
+        DespachoService service = new DespachoService() {
+            @Override
+            public Despacho despacharPedido(long idPedido, long idUsuario, String observacion) {
+                llamadas.add(idUsuario);
+                llamadas.add(observacion);
+                return despacho();
+            }
+        };
+
+        try (Response response = new DespachoResource(service)
+                .despacharPedido("501", null, uriInfo(), SesionDePrueba.usuario(9, "DESPACHO"))) {
+            assertEquals(201, response.getStatus());
+        }
+        assertEquals(java.util.Arrays.asList(9L, null), llamadas);
     }
 
     @Test
@@ -107,9 +127,9 @@ class DespachoResourceTest {
         assertThrows(BadRequestException.class, () -> resource.buscarDespacho("abc"));
         assertThrows(BadRequestException.class, () -> resource.buscarDespacho("0"));
         assertThrows(BadRequestException.class,
-                () -> resource.despacharPedido("-1", new DespacharPedidoDTO(), uriInfo()));
-        assertThrows(BadRequestException.class,
-                () -> resource.despacharPedido("501", null, uriInfo()));
+                () -> resource.despacharPedido("-1", new DespacharPedidoDTO(), uriInfo(), SesionDePrueba.usuario(7, "DESPACHO")));
+        assertThrows(NoAutenticadoException.class,
+                () -> resource.despacharPedido("501", null, uriInfo(), null));
     }
 
     @Test
@@ -122,10 +142,10 @@ class DespachoResourceTest {
             }
         };
         DespacharPedidoDTO solicitud = new DespacharPedidoDTO();
-        solicitud.setIdUsuario(7);
 
         DespachoConflictoException exception = assertThrows(DespachoConflictoException.class,
-                () -> new DespachoResource(service).despacharPedido("501", solicitud, uriInfo()));
+                () -> new DespachoResource(service).despacharPedido("501", solicitud, uriInfo(),
+                        SesionDePrueba.usuario(7, "DESPACHO")));
         try (Response response = mapper.toResponse(exception)) {
             assertEquals(409, response.getStatus());
             assertFalse(((ApiError) response.getEntity()).getMessage().contains("ORA-"));

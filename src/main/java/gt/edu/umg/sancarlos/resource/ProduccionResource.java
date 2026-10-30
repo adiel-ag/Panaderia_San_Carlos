@@ -3,7 +3,6 @@ package gt.edu.umg.sancarlos.resource;
 import gt.edu.umg.sancarlos.dto.AsociarPedidoDTO;
 import gt.edu.umg.sancarlos.dto.CantidadProducidaDTO;
 import gt.edu.umg.sancarlos.dto.CrearProduccionDTO;
-import gt.edu.umg.sancarlos.dto.FinalizarProduccionDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionCreadaDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionOperacionDTO;
 import gt.edu.umg.sancarlos.service.ProduccionService;
@@ -19,6 +18,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriInfo;
 
 /** Endpoints REST de producción; las reglas de negocio las resuelve PKG_PRODUCCION. */
@@ -39,10 +39,11 @@ public class ProduccionResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({Roles.ADMINISTRADOR, Roles.PRODUCCION})
-    public Response crearProduccion(CrearProduccionDTO solicitud, @Context UriInfo uriInfo) {
+    public Response crearProduccion(CrearProduccionDTO solicitud, @Context UriInfo uriInfo,
+            @Context SecurityContext seguridad) {
         requerirCuerpo(solicitud);
         long idProduccion = produccionService.crearProduccion(
-                solicitud.getIdUsuario(), solicitud.getObservacion());
+                UsuarioActual.id(seguridad), solicitud.getObservacion());
         return Response.created(uriInfo.getAbsolutePathBuilder()
                         .path(Long.toString(idProduccion)).build())
                 .entity(new ProduccionCreadaDTO(idProduccion))
@@ -99,15 +100,14 @@ public class ProduccionResource {
                 "Cantidad producida registrada para el producto " + producto)).build();
     }
 
+    /** No necesita cuerpo: finaliza el usuario de la sesion; un cuerpo enviado se ignora. */
     @POST
     @Path("{id}/finalizar")
-    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({Roles.ADMINISTRADOR, Roles.PRODUCCION})
     public Response finalizarProduccion(@PathParam("id") String id,
-            FinalizarProduccionDTO solicitud) {
+            @Context SecurityContext seguridad) {
         long idProduccion = parsearId(id, "producción");
-        requerirCuerpo(solicitud);
-        produccionService.finalizarProduccion(idProduccion, solicitud.getIdUsuario());
+        produccionService.finalizarProduccion(idProduccion, UsuarioActual.id(seguridad));
         return Response.ok(new ProduccionOperacionDTO(idProduccion,
                 "Producción finalizada")).build();
     }

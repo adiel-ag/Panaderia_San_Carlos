@@ -3,7 +3,7 @@ package gt.edu.umg.sancarlos.resource;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import gt.edu.umg.sancarlos.dto.ApiError;
-import gt.edu.umg.sancarlos.dto.DespacharPedidoDTO;
+import gt.edu.umg.sancarlos.dto.MovimientoInventarioDTO;
 import java.util.List;
 import gt.edu.umg.sancarlos.exception.AccesoDenegadoException;
 import gt.edu.umg.sancarlos.exception.CredencialesInvalidasException;
@@ -120,9 +120,9 @@ class ApiExceptionMapperTest {
     void jsonMalFormadoOConTipoIncorrectoResponde400SinDetalleDelParser() {
         ObjectMapper objectMapper = new ObjectMapper();
         JsonProcessingException truncado = assertThrows(JsonProcessingException.class,
-                () -> objectMapper.readValue("{\"idUsuario\":", DespacharPedidoDTO.class));
+                () -> objectMapper.readValue("{\"cantidad\":", MovimientoInventarioDTO.class));
         JsonProcessingException tipoIncorrecto = assertThrows(JsonProcessingException.class,
-                () -> objectMapper.readValue("{\"idUsuario\":\"abc\"}", DespacharPedidoDTO.class));
+                () -> objectMapper.readValue("{\"cantidad\":\"abc\"}", MovimientoInventarioDTO.class));
 
         for (JsonProcessingException exception : List.of(truncado, tipoIncorrecto)) {
             try (Response response = mapper.toResponse(exception)) {

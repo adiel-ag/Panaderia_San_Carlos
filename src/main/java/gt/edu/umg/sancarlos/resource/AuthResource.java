@@ -2,8 +2,6 @@ package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.LoginDTO;
 import gt.edu.umg.sancarlos.dto.MensajeDTO;
-import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
-import gt.edu.umg.sancarlos.model.UsuarioSesion;
 import gt.edu.umg.sancarlos.service.AutenticacionService;
 import gt.edu.umg.sancarlos.service.AutenticacionService.SesionIniciada;
 import jakarta.annotation.security.PermitAll;
@@ -72,10 +70,6 @@ public class AuthResource {
     @Path("me")
     @PermitAll
     public Response usuarioActual(@Context SecurityContext seguridad) {
-        SesionNoVerificada.exigirVerificada(seguridad);
-        if (seguridad == null || !(seguridad.getUserPrincipal() instanceof UsuarioSesion usuario)) {
-            throw new NoAutenticadoException("Debe iniciar sesión.", null);
-        }
-        return Response.ok(usuario).build();
+        return Response.ok(UsuarioActual.de(seguridad)).build();
     }
 }

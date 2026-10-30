@@ -10,8 +10,10 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 
 /** Endpoints REST de inventario; existencias y movimientos los resuelve PKG_INVENTARIO. */
 @Path("/inventario")
@@ -43,10 +45,10 @@ public class InventarioResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({Roles.ADMINISTRADOR, Roles.BODEGA})
     public Response registrarEntrada(@PathParam("idProducto") String idProducto,
-            MovimientoInventarioDTO solicitud) {
+            MovimientoInventarioDTO solicitud, @Context SecurityContext seguridad) {
         long id = parsearIdProducto(idProducto);
         validarSolicitud(solicitud);
-        return Response.ok(inventarioService.registrarEntrada(id, solicitud.getIdUsuario(),
+        return Response.ok(inventarioService.registrarEntrada(id, UsuarioActual.id(seguridad),
                 solicitud.getCantidad(), solicitud.getObservacion())).build();
     }
 
@@ -56,10 +58,10 @@ public class InventarioResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed({Roles.ADMINISTRADOR, Roles.BODEGA})
     public Response registrarSalida(@PathParam("idProducto") String idProducto,
-            MovimientoInventarioDTO solicitud) {
+            MovimientoInventarioDTO solicitud, @Context SecurityContext seguridad) {
         long id = parsearIdProducto(idProducto);
         validarSolicitud(solicitud);
-        return Response.ok(inventarioService.registrarSalida(id, solicitud.getIdUsuario(),
+        return Response.ok(inventarioService.registrarSalida(id, UsuarioActual.id(seguridad),
                 solicitud.getCantidad(), solicitud.getObservacion())).build();
     }
 

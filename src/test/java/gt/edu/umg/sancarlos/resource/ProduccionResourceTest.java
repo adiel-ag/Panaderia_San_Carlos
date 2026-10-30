@@ -4,9 +4,9 @@ import gt.edu.umg.sancarlos.dto.ApiError;
 import gt.edu.umg.sancarlos.dto.AsociarPedidoDTO;
 import gt.edu.umg.sancarlos.dto.CantidadProducidaDTO;
 import gt.edu.umg.sancarlos.dto.CrearProduccionDTO;
-import gt.edu.umg.sancarlos.dto.FinalizarProduccionDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionCreadaDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionOperacionDTO;
+import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
 import gt.edu.umg.sancarlos.exception.ProduccionConflictoException;
 import gt.edu.umg.sancarlos.exception.ProduccionNoEncontradaException;
 import gt.edu.umg.sancarlos.model.ProduccionDetalle;
@@ -19,6 +19,7 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriInfo;
 import java.lang.reflect.Method;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -47,7 +49,8 @@ class ProduccionResourceTest {
         assertEquals("/producciones", ProduccionResource.class.getAnnotation(Path.class).value());
         Class<?> r = ProduccionResource.class;
 
-        Method crear = r.getMethod("crearProduccion", CrearProduccionDTO.class, UriInfo.class);
+        Method crear = r.getMethod("crearProduccion", CrearProduccionDTO.class, UriInfo.class,
+                SecurityContext.class);
         assertNotNull(crear.getAnnotation(POST.class));
         assertEquals(MediaType.APPLICATION_JSON, crear.getAnnotation(Consumes.class).value()[0]);
 
@@ -69,10 +72,10 @@ class ProduccionResourceTest {
         assertEquals("{id}/productos/{idProducto}/cantidad-producida",
                 cantidad.getAnnotation(Path.class).value());
 
-        Method finalizar = r.getMethod("finalizarProduccion", String.class,
-                FinalizarProduccionDTO.class);
+        Method finalizar = r.getMethod("finalizarProduccion", String.class, SecurityContext.class);
         assertNotNull(finalizar.getAnnotation(POST.class));
         assertEquals("{id}/finalizar", finalizar.getAnnotation(Path.class).value());
+        assertNull(finalizar.getAnnotation(Consumes.class), "finalizar no necesita cuerpo");
     }
 
     @Test
@@ -86,10 +89,10 @@ class ProduccionResourceTest {
             }
         };
         CrearProduccionDTO solicitud = new CrearProduccionDTO();
-        solicitud.setIdUsuario(7);
         solicitud.setObservacion("Turno mañana");
 
-        try (Response response = new ProduccionResource(service).crearProduccion(solicitud, uriInfo())) {
+        try (Response response = new ProduccionResource(service).crearProduccion(solicitud, uriInfo(),
+                SesionDePrueba.usuario(7, "PRODUCCION"))) {
             assertEquals(201, response.getStatus());
             assertEquals(URI.create("http://localhost:8080/panaderia/api/producciones/90"),
                     response.getLocation());
@@ -196,10 +199,8 @@ class ProduccionResourceTest {
                 llamadas.add(idUsuario);
             }
         };
-        FinalizarProduccionDTO solicitud = new FinalizarProduccionDTO();
-        solicitud.setIdUsuario(7);
-
-        try (Response response = new ProduccionResource(service).finalizarProduccion("90", solicitud)) {
+        try (Response response = new ProduccionResource(service).finalizarProduccion("90",
+                SesionDePrueba.usuario(7, "PRODUCCION"))) {
             assertEquals(200, response.getStatus());
         }
         assertEquals(List.of(90L, 7L), llamadas);
@@ -213,8 +214,11 @@ class ProduccionResourceTest {
         assertThrows(BadRequestException.class, () -> resource.consultarDetalle("0"));
         assertThrows(BadRequestException.class, () -> resource.generarPlan("-1"));
         assertThrows(BadRequestException.class, () -> resource.asociarPedido("90", null));
-        assertThrows(BadRequestException.class, () -> resource.finalizarProduccion("90", null));
-        assertThrows(BadRequestException.class, () -> resource.crearProduccion(null, uriInfo()));
+        assertThrows(BadRequestException.class,
+                () -> resource.finalizarProduccion("abc", SesionDePrueba.usuario(7, "PRODUCCION")));
+        assertThrows(NoAutenticadoException.class, () -> resource.finalizarProduccion("90", null));
+        assertThrows(BadRequestException.class,
+                () -> resource.crearProduccion(null, uriInfo(), SesionDePrueba.usuario(7, "PRODUCCION")));
         assertThrows(BadRequestException.class,
                 () -> resource.registrarCantidadProducida("90", "x", cantidad("1")));
         assertThrows(BadRequestException.class,
@@ -240,11 +244,9 @@ class ProduccionResourceTest {
                         new SQLException("ORA-20003: Inventario insuficiente ORA-06512", "72000", 20003));
             }
         };
-        FinalizarProduccionDTO solicitud = new FinalizarProduccionDTO();
-        solicitud.setIdUsuario(7);
-
         ProduccionConflictoException exception = assertThrows(ProduccionConflictoException.class,
-                () -> new ProduccionResource(service).finalizarProduccion("90", solicitud));
+                () -> new ProduccionResource(service).finalizarProduccion("90",
+                        SesionDePrueba.usuario(7, "PRODUCCION")));
         try (Response response = mapper.toResponse(exception)) {
             assertEquals(409, response.getStatus());
             String message = ((ApiError) response.getEntity()).getMessage();
