@@ -1,5 +1,6 @@
 package gt.edu.umg.sancarlos.dao;
 
+import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import gt.edu.umg.sancarlos.model.UsuarioSesion;
 import java.sql.CallableStatement;
 import java.sql.Connection;
@@ -57,6 +58,7 @@ public class SeguridadDAO {
     public void establecerClave(Connection connection, long idUsuario, String algoritmo,
             int iteraciones, String salt, String huella) throws SQLException {
         try (CallableStatement statement = connection.prepareCall(SP_ESTABLECER_CLAVE)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idUsuario);
             statement.setString(2, algoritmo);
             statement.setInt(3, iteraciones);
@@ -69,6 +71,7 @@ public class SeguridadDAO {
     public ParametrosClave obtenerParametros(Connection connection, String username)
             throws SQLException {
         try (CallableStatement statement = connection.prepareCall(SP_OBTENER_PARAMETROS)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setString(1, username);
             statement.registerOutParameter(2, Types.VARCHAR);
             statement.registerOutParameter(3, Types.NUMERIC);
@@ -82,6 +85,7 @@ public class SeguridadDAO {
     public ResultadoAcceso validarAcceso(Connection connection, String username,
             ParametrosClave parametros, String huella) throws SQLException {
         try (CallableStatement statement = connection.prepareCall(SP_VALIDAR_ACCESO)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setString(1, username);
             statement.setString(2, parametros.algoritmo());
             statement.setInt(3, parametros.iteraciones());
@@ -104,6 +108,7 @@ public class SeguridadDAO {
     public Optional<PerfilAcceso> buscarPerfil(Connection connection, long idUsuario)
             throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(SQL_PERFIL)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idUsuario);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
@@ -127,6 +132,7 @@ public class SeguridadDAO {
     public Optional<Long> buscarIdPorUsername(Connection connection, String username)
             throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(SQL_ID_POR_USERNAME)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setString(1, username);
             try (ResultSet resultSet = statement.executeQuery()) {
                 return resultSet.next() ? Optional.of(resultSet.getLong(1)) : Optional.empty();

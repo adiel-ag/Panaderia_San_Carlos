@@ -30,6 +30,9 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.sql.SQLException;
+import java.sql.SQLRecoverableException;
+import java.sql.SQLTimeoutException;
+import java.sql.SQLTransientConnectionException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -76,6 +79,54 @@ class ApiExceptionMapperTest {
             String message = ((ApiError) response.getEntity()).getMessage();
             assertFalse(message.contains("SQL interno"));
             assertFalse(message.contains("detalle Oracle"));
+        }
+    }
+
+    @Test
+    void timeoutDeAccesoADatosResponde503SinDetalleSql() {
+        DataAccessException exception = new DataAccessException("SQL interno",
+                new SQLTimeoutException("ORA-99999 secreto"));
+
+        try (Response response = mapper.toResponse(exception)) {
+            ApiError error = (ApiError) response.getEntity();
+            assertEquals(503, response.getStatus());
+            assertEquals(MediaType.APPLICATION_JSON_TYPE, response.getMediaType());
+            assertEquals(503, error.getStatus());
+            assertEquals("Servicio no disponible", error.getError());
+            assertEquals("La base de datos no está disponible o no respondió a tiempo. Intente de nuevo.",
+                    error.getMessage());
+            assertFalse(error.getMessage().contains("ORA-99999 secreto"));
+        }
+    }
+
+    @Test
+    void errorRecuperableAnidadoResponde503() {
+        Exception exception = new Exception("capa externa", new RuntimeException("capa intermedia",
+                new SQLRecoverableException("detalle Oracle privado")));
+
+        try (Response response = mapper.toResponse(exception)) {
+            assertEquals(503, response.getStatus());
+            assertFalse(((ApiError) response.getEntity()).getMessage().contains("detalle Oracle privado"));
+        }
+    }
+
+    @Test
+    void conexionTransitoriaResponde503() {
+        try (Response response = mapper.toResponse(
+                new SQLTransientConnectionException("detalle SQL privado"))) {
+            assertEquals(503, response.getStatus());
+            assertFalse(((ApiError) response.getEntity()).getMessage().contains("detalle SQL privado"));
+        }
+    }
+
+    @Test
+    void sqlOrdinarioResponde500SinDetalleSql() {
+        try (Response response = mapper.toResponse(new SQLException("detalle SQL privado"))) {
+            assertEquals(500, response.getStatus());
+            ApiError error = (ApiError) response.getEntity();
+            assertEquals("Error interno", error.getError());
+            assertEquals("Ocurrió un error interno en el servidor.", error.getMessage());
+            assertFalse(error.getMessage().contains("detalle SQL privado"));
         }
     }
     @Test

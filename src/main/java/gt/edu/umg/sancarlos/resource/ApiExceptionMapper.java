@@ -28,6 +28,12 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+import java.sql.SQLRecoverableException;
+import java.sql.SQLTimeoutException;
+import java.sql.SQLTransientConnectionException;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -38,9 +44,16 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
     private static final Logger LOGGER = Logger.getLogger(ApiExceptionMapper.class.getName());
     private static final String ERROR_INTERNO = "Ocurrió un error interno en el servidor.";
     private static final String JSON_INVALIDO = "El cuerpo JSON no es válido.";
+    private static final String BASE_NO_DISPONIBLE =
+            "La base de datos no está disponible o no respondió a tiempo. Intente de nuevo.";
 
     @Override
     public Response toResponse(Exception exception) {
+        if (esFalloTemporalDeBase(exception)) {
+            LOGGER.log(Level.WARNING, "Base de datos no disponible en REST", exception);
+            return crearRespuesta(Response.Status.SERVICE_UNAVAILABLE,
+                    "Servicio no disponible", BASE_NO_DISPONIBLE);
+        }
         if (exception instanceof JsonProcessingException) {
             // El mensaje de Jackson incluye detalles del parser; se responde con uno fijo.
             return crearRespuesta(Response.Status.BAD_REQUEST,
@@ -99,6 +112,19 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
         LOGGER.log(Level.SEVERE, "Error inesperado procesando una solicitud REST", exception);
         return crearRespuesta(Response.Status.INTERNAL_SERVER_ERROR,
                 "Error interno", ERROR_INTERNO);
+    }
+
+    private static boolean esFalloTemporalDeBase(Throwable exception) {
+        Set<Throwable> vistas = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable causa = exception; causa != null && vistas.add(causa);
+                causa = causa.getCause()) {
+            if (causa instanceof SQLTimeoutException
+                    || causa instanceof SQLRecoverableException
+                    || causa instanceof SQLTransientConnectionException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Response crearRespuesta(Response.Status status, String error, String message) {

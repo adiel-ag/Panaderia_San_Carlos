@@ -1,5 +1,6 @@
 package gt.edu.umg.sancarlos.dao;
 
+import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import gt.edu.umg.sancarlos.model.ProduccionDetalle;
 import java.sql.CallableStatement;
 import java.sql.Connection;
@@ -41,6 +42,7 @@ public class ProduccionDAO {
     public long crear(Connection connection, long idUsuario, String observacion)
             throws SQLException {
         try (CallableStatement statement = connection.prepareCall(SP_CREAR)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idUsuario);
             statement.setString(2, observacion);
             statement.registerOutParameter(3, Types.NUMERIC);
@@ -56,6 +58,7 @@ public class ProduccionDAO {
     public void asociarPedido(Connection connection, long idProduccion, long idPedido)
             throws SQLException {
         try (CallableStatement statement = connection.prepareCall(SP_ASOCIAR_PEDIDO)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idProduccion);
             statement.setLong(2, idPedido);
             statement.execute();
@@ -64,6 +67,7 @@ public class ProduccionDAO {
 
     public void generarPlan(Connection connection, long idProduccion) throws SQLException {
         try (CallableStatement statement = connection.prepareCall(SP_GENERAR_PLAN)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idProduccion);
             statement.execute();
         }
@@ -72,6 +76,7 @@ public class ProduccionDAO {
     /** Indica si existe una producción con el identificador indicado. */
     public boolean existe(Connection connection, long idProduccion) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(SQL_EXISTE)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idProduccion);
             try (ResultSet resultSet = statement.executeQuery()) {
                 return resultSet.next() && resultSet.getLong(1) > 0;
@@ -84,6 +89,7 @@ public class ProduccionDAO {
             throws SQLException {
         List<ProduccionDetalle> detalles = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(SQL_DETALLE)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idProduccion);
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
@@ -104,6 +110,7 @@ public class ProduccionDAO {
     public void registrarProducido(Connection connection, long idProduccion,
             long idProducto, java.math.BigDecimal cantidad) throws SQLException {
         try (CallableStatement statement = connection.prepareCall(SP_REGISTRAR_PRODUCIDO)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idProduccion);
             statement.setLong(2, idProducto);
             statement.setBigDecimal(3, cantidad);
@@ -114,6 +121,7 @@ public class ProduccionDAO {
     public void finalizar(Connection connection, long idProduccion, long idUsuario)
             throws SQLException {
         try (CallableStatement statement = connection.prepareCall(SP_FINALIZAR)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idProduccion);
             statement.setLong(2, idUsuario);
             statement.execute();

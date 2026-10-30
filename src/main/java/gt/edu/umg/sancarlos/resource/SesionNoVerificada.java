@@ -6,7 +6,7 @@ import java.security.Principal;
 
 /**
  * Hay una sesion, pero Oracle no respondio al revalidarla. No da acceso a
- * nadie; quien necesite al usuario relanza el error original (500) en vez de
+ * nadie; quien necesite al usuario relanza el error original (500 o 503) en vez de
  * responder 401, para no confundir una caida de la base con "sin sesion".
  * Las operaciones que no necesitan al usuario siguen su curso; el logout ni
  * siquiera llega aqui (ver @SinRevalidarSesion).

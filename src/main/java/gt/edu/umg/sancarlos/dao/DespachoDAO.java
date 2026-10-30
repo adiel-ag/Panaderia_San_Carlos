@@ -1,5 +1,6 @@
 package gt.edu.umg.sancarlos.dao;
 
+import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import gt.edu.umg.sancarlos.model.Despacho;
 import java.sql.CallableStatement;
 import java.sql.Connection;
@@ -30,6 +31,7 @@ public class DespachoDAO {
     public void despacharPedido(Connection connection, long idPedido, long idUsuario,
             String observacion) throws SQLException {
         try (CallableStatement statement = connection.prepareCall(SP_DESPACHAR_PEDIDO)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idPedido);
             statement.setLong(2, idUsuario);
             statement.setString(3, observacion);
@@ -41,6 +43,7 @@ public class DespachoDAO {
     public Optional<Despacho> buscarPorPedido(Connection connection, long idPedido)
             throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(SQL_BUSCAR_POR_PEDIDO)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idPedido);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {

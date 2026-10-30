@@ -1,5 +1,6 @@
 package gt.edu.umg.sancarlos.dao;
 
+import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import java.math.BigDecimal;
 import java.sql.CallableStatement;
 import java.sql.Connection;
@@ -20,6 +21,7 @@ public class InventarioDAO {
     public BigDecimal consultarExistencia(Connection connection, long idProducto)
             throws SQLException {
         try (CallableStatement statement = connection.prepareCall(FN_EXISTENCIA)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.registerOutParameter(1, Types.NUMERIC);
             statement.setLong(2, idProducto);
             statement.execute();
@@ -47,6 +49,7 @@ public class InventarioDAO {
             long idProducto, BigDecimal cantidad, long idUsuario, String origen,
             String observacion) throws SQLException {
         try (CallableStatement statement = connection.prepareCall(llamada)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idProducto);
             statement.setBigDecimal(2, cantidad);
             statement.setLong(3, idUsuario);

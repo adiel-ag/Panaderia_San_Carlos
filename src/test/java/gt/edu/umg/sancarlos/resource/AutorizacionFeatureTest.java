@@ -17,6 +17,7 @@ import java.io.ByteArrayInputStream;
 import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -63,6 +64,26 @@ class AutorizacionFeatureTest {
                 () -> new AuthResource(new AutenticacionService()).usuarioActual(noVerificada)));
         try (jakarta.ws.rs.core.Response response = new ApiExceptionMapper().toResponse(caida)) {
             assertEquals(500, response.getStatus());
+        }
+    }
+
+    @Test
+    void timeoutAlRevalidarSesionResponde503YNo401() {
+        DataAccessException caida = new DataAccessException("No fue posible validar la sesión",
+                new SQLTimeoutException("ORA-99999 detalle privado"));
+        SesionNoVerificada noVerificada = new SesionNoVerificada(caida, false);
+        ContainerRequestContext contexto = (ContainerRequestContext) Proxy.newProxyInstance(
+                ContainerRequestContext.class.getClassLoader(), new Class<?>[]{ContainerRequestContext.class},
+                (p, m, a) -> m.getName().equals("getSecurityContext") ? noVerificada : null);
+
+        DataAccessException error = assertThrows(DataAccessException.class,
+                () -> new AutorizacionFeature.FiltroRoles(Set.of("ADMINISTRADOR")).filter(contexto));
+        try (jakarta.ws.rs.core.Response response = new ApiExceptionMapper().toResponse(error)) {
+            assertEquals(503, response.getStatus());
+            ApiError body = assertInstanceOf(ApiError.class, response.getEntity());
+            assertEquals("Servicio no disponible", body.getError());
+            assertEquals("La base de datos no está disponible o no respondió a tiempo. Intente de nuevo.",
+                    body.getMessage());
         }
     }
 

@@ -74,7 +74,7 @@ public class SesionFilter implements ContainerRequestFilter {
             usuario = autenticacionService.obtenerSesionVigente(idUsuario, inicio);
         } catch (DataAccessException oracleNoDisponible) {
             // No se corta la peticion: una caida de Oracle no cierra la sesion
-            // ni da acceso; quien necesite al usuario relanza el error (500).
+            // ni da acceso; quien necesite al usuario relanza el error (500 o 503).
             requestContext.setSecurityContext(new SesionNoVerificada(oracleNoDisponible, seguro));
             return;
         }

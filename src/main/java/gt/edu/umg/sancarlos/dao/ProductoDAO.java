@@ -1,5 +1,6 @@
 package gt.edu.umg.sancarlos.dao;
 
+import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import gt.edu.umg.sancarlos.model.Producto;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -41,10 +42,12 @@ public class ProductoDAO {
     public List<Producto> listar(Connection connection) throws SQLException {
         List<Producto> productos = new ArrayList<>();
 
-        try (PreparedStatement statement = connection.prepareStatement(SQL_LISTAR);
-             ResultSet resultSet = statement.executeQuery()) {
-            while (resultSet.next()) {
-                productos.add(mapear(resultSet));
+        try (PreparedStatement statement = connection.prepareStatement(SQL_LISTAR)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    productos.add(mapear(resultSet));
+                }
             }
         }
 
@@ -54,6 +57,7 @@ public class ProductoDAO {
     public Optional<Producto> buscarPorId(Connection connection, long idProducto)
             throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(SQL_BUSCAR_POR_ID)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idProducto);
 
             try (ResultSet resultSet = statement.executeQuery()) {

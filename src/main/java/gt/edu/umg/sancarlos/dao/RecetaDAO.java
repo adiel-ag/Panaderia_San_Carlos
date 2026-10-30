@@ -1,5 +1,6 @@
 package gt.edu.umg.sancarlos.dao;
 
+import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -15,6 +16,7 @@ public class RecetaDAO {
     public long buscarIdRecetaActiva(Connection connection, long idProducto)
             throws SQLException {
         try (CallableStatement statement = connection.prepareCall(FN_RECETA_ACTIVA)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.registerOutParameter(1, Types.NUMERIC);
             statement.setLong(2, idProducto);
             statement.execute();

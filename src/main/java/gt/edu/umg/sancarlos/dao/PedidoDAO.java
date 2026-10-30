@@ -1,5 +1,6 @@
 package gt.edu.umg.sancarlos.dao;
 
+import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDetalleDTO;
 import gt.edu.umg.sancarlos.model.Pedido;
@@ -44,6 +45,7 @@ public class PedidoDAO {
     /** Crea la cabecera y retorna el ID generado; no administra la conexión. */
     public long crear(Connection connection, CrearPedidoDTO pedido) throws SQLException {
         try (CallableStatement statement = connection.prepareCall(SP_CREAR_PEDIDO)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, pedido.getIdSucursal());
             statement.setLong(2, pedido.getIdUsuario());
             statement.setDate(3, java.sql.Date.valueOf(pedido.getFechaEntrega()));
@@ -63,6 +65,7 @@ public class PedidoDAO {
     public void agregarDetalle(Connection connection, long idPedido,
             CrearPedidoDetalleDTO detalle) throws SQLException {
         try (CallableStatement statement = connection.prepareCall(SP_AGREGAR_DETALLE)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idPedido);
             statement.setLong(2, detalle.getIdProducto());
             statement.setBigDecimal(3, detalle.getCantidad());
@@ -73,6 +76,7 @@ public class PedidoDAO {
     /** Confirma el pedido mediante el paquete Oracle. */
     public void confirmar(Connection connection, long idPedido) throws SQLException {
         try (CallableStatement statement = connection.prepareCall(SP_CONFIRMAR_PEDIDO)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idPedido);
             statement.execute();
         }
@@ -82,6 +86,7 @@ public class PedidoDAO {
     public Optional<Pedido> buscarPorId(Connection connection, long idPedido)
             throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(SQL_BUSCAR_POR_ID)) {
+            ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idPedido);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
