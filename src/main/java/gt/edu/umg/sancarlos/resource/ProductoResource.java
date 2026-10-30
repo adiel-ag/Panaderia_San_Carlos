@@ -2,6 +2,7 @@ package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.model.Producto;
 import gt.edu.umg.sancarlos.service.ProductoService;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -28,6 +29,8 @@ public class ProductoResource {
     }
 
     @GET
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.SUCURSAL,
+            Roles.PRODUCCION, Roles.BODEGA, Roles.DESPACHO})
     public Response listarProductos() {
         List<Producto> productos = productoService.listarProductos();
         return Response.ok(productos).build();
@@ -35,6 +38,8 @@ public class ProductoResource {
 
     @GET
     @Path("{id}")
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.SUCURSAL,
+            Roles.PRODUCCION, Roles.BODEGA, Roles.DESPACHO})
     public Response buscarProductoPorId(@PathParam("id") String id) {
         final long idProducto;
         try {

@@ -7,6 +7,7 @@ import gt.edu.umg.sancarlos.dto.FinalizarProduccionDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionCreadaDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionOperacionDTO;
 import gt.edu.umg.sancarlos.service.ProduccionService;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -37,6 +38,7 @@ public class ProduccionResource {
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.PRODUCCION})
     public Response crearProduccion(CrearProduccionDTO solicitud, @Context UriInfo uriInfo) {
         requerirCuerpo(solicitud);
         long idProduccion = produccionService.crearProduccion(
@@ -50,6 +52,7 @@ public class ProduccionResource {
     @POST
     @Path("{id}/pedidos")
     @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.PRODUCCION})
     public Response asociarPedido(@PathParam("id") String id, AsociarPedidoDTO solicitud) {
         long idProduccion = parsearId(id, "producción");
         requerirCuerpo(solicitud);
@@ -61,6 +64,7 @@ public class ProduccionResource {
     /** Genera el plan en Oracle y devuelve los renglones que este calculó. */
     @POST
     @Path("{id}/generar-plan")
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.PRODUCCION})
     public Response generarPlan(@PathParam("id") String id) {
         long idProduccion = parsearId(id, "producción");
         produccionService.generarPlan(idProduccion);
@@ -69,6 +73,7 @@ public class ProduccionResource {
 
     @GET
     @Path("{id}/detalle")
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.PRODUCCION})
     public Response consultarDetalle(@PathParam("id") String id) {
         long idProduccion = parsearId(id, "producción");
         return Response.ok(produccionService.consultarDetalle(idProduccion)).build();
@@ -78,6 +83,7 @@ public class ProduccionResource {
     @PUT
     @Path("{id}/productos/{idProducto}/cantidad-producida")
     @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.PRODUCCION})
     public Response registrarCantidadProducida(@PathParam("id") String id,
             @PathParam("idProducto") String idProducto, CantidadProducidaDTO solicitud) {
         long idProduccion = parsearId(id, "producción");
@@ -96,6 +102,7 @@ public class ProduccionResource {
     @POST
     @Path("{id}/finalizar")
     @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.PRODUCCION})
     public Response finalizarProduccion(@PathParam("id") String id,
             FinalizarProduccionDTO solicitud) {
         long idProduccion = parsearId(id, "producción");

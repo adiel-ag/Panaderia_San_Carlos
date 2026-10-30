@@ -3,6 +3,7 @@ package gt.edu.umg.sancarlos.resource;
 import gt.edu.umg.sancarlos.dto.DespacharPedidoDTO;
 import gt.edu.umg.sancarlos.model.Despacho;
 import gt.edu.umg.sancarlos.service.DespachoService;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -33,6 +34,7 @@ public class DespachoResource {
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.DESPACHO})
     public Response despacharPedido(@PathParam("id") String id, DespacharPedidoDTO solicitud,
             @Context UriInfo uriInfo) {
         long idPedido = parsearIdPedido(id);
@@ -45,6 +47,7 @@ public class DespachoResource {
     }
 
     @GET
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.SUCURSAL, Roles.DESPACHO})
     public Response buscarDespacho(@PathParam("id") String id) {
         long idPedido = parsearIdPedido(id);
         Despacho despacho = despachoService.buscarPorPedido(idPedido)

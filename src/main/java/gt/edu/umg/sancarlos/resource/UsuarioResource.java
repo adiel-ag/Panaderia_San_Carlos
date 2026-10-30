@@ -32,7 +32,7 @@ public class UsuarioResource {
     /** Las sesiones abiertas del usuario dejan de valer al cambiar su clave. */
     @PUT
     @Path("{id}/clave")
-    @RolesAllowed("ADMINISTRADOR")
+    @RolesAllowed(Roles.ADMINISTRADOR)
     @Consumes(MediaType.APPLICATION_JSON)
     public Response asignarClave(@PathParam("id") String id, AsignarClaveDTO solicitud) {
         final long idUsuario;

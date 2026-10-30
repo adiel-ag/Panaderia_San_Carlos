@@ -4,6 +4,7 @@ import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
 import gt.edu.umg.sancarlos.dto.PedidoCreadoDTO;
 import gt.edu.umg.sancarlos.model.Pedido;
 import gt.edu.umg.sancarlos.service.PedidoService;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -34,6 +35,7 @@ public class PedidoResource {
 
     @POST
     @jakarta.ws.rs.Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.SUCURSAL})
     public Response crearPedido(CrearPedidoDTO solicitud, @Context UriInfo uriInfo) {
         long idPedido = pedidoService.crearPedido(solicitud);
         return Response.created(uriInfo.getAbsolutePathBuilder()
@@ -44,6 +46,8 @@ public class PedidoResource {
 
     @GET
     @Path("{id}")
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.SUCURSAL,
+            Roles.PRODUCCION, Roles.DESPACHO})
     public Response buscarPedidoPorId(@PathParam("id") String id) {
         final long idPedido;
         try {

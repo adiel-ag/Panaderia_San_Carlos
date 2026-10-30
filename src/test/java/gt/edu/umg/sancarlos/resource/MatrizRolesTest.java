@@ -1,0 +1,226 @@
+package gt.edu.umg.sancarlos.resource;
+
+import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
+import gt.edu.umg.sancarlos.dto.ExistenciaDTO;
+import gt.edu.umg.sancarlos.model.Despacho;
+import gt.edu.umg.sancarlos.model.ProduccionDetalle;
+import gt.edu.umg.sancarlos.model.UsuarioSesion;
+import gt.edu.umg.sancarlos.service.DespachoService;
+import gt.edu.umg.sancarlos.service.InventarioService;
+import gt.edu.umg.sancarlos.service.PedidoService;
+import gt.edu.umg.sancarlos.service.ProduccionService;
+import jakarta.annotation.Priority;
+import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
+import jakarta.ws.rs.HttpMethod;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Priorities;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestFilter;
+import java.io.ByteArrayInputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.math.BigDecimal;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.glassfish.jersey.internal.MapPropertiesDelegate;
+import org.glassfish.jersey.server.ApplicationHandler;
+import org.glassfish.jersey.server.ContainerRequest;
+import org.glassfish.jersey.server.ResourceConfig;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * La matriz de permisos aprobada, escrita como tabla. Si alguien cambia un
+ * @RolesAllowed sin actualizar esta tabla (o al reves), la prueba falla.
+ */
+class MatrizRolesTest {
+
+    private static final String ADMIN = "ADMINISTRADOR";
+    private static final String GERENTE = "GERENTE";
+    private static final String SUCURSAL = "SUCURSAL";
+    private static final String PRODUCCION = "PRODUCCION";
+    private static final String BODEGA = "BODEGA";
+    private static final String DESPACHO = "DESPACHO";
+    private static final Set<String> TODOS = Set.of(ADMIN, GERENTE, SUCURSAL, PRODUCCION, BODEGA, DESPACHO);
+
+    private static final Map<String, Set<String>> MATRIZ = Map.ofEntries(
+            Map.entry("ProductoResource.listarProductos", TODOS),
+            Map.entry("ProductoResource.buscarProductoPorId", TODOS),
+            Map.entry("RecetaResource.buscarRecetaActiva", TODOS),
+            Map.entry("PedidoResource.crearPedido", Set.of(ADMIN, SUCURSAL)),
+            Map.entry("PedidoResource.buscarPedidoPorId", Set.of(ADMIN, GERENTE, SUCURSAL, PRODUCCION, DESPACHO)),
+            Map.entry("ProduccionResource.crearProduccion", Set.of(ADMIN, PRODUCCION)),
+            Map.entry("ProduccionResource.asociarPedido", Set.of(ADMIN, PRODUCCION)),
+            Map.entry("ProduccionResource.generarPlan", Set.of(ADMIN, PRODUCCION)),
+            Map.entry("ProduccionResource.registrarCantidadProducida", Set.of(ADMIN, PRODUCCION)),
+            Map.entry("ProduccionResource.finalizarProduccion", Set.of(ADMIN, PRODUCCION)),
+            Map.entry("ProduccionResource.consultarDetalle", Set.of(ADMIN, GERENTE, PRODUCCION)),
+            Map.entry("InventarioResource.consultarExistencia", Set.of(ADMIN, GERENTE, PRODUCCION, BODEGA, DESPACHO)),
+            Map.entry("InventarioResource.registrarEntrada", Set.of(ADMIN, BODEGA)),
+            Map.entry("InventarioResource.registrarSalida", Set.of(ADMIN, BODEGA)),
+            Map.entry("DespachoResource.despacharPedido", Set.of(ADMIN, DESPACHO)),
+            Map.entry("DespachoResource.buscarDespacho", Set.of(ADMIN, GERENTE, SUCURSAL, DESPACHO)),
+            Map.entry("UsuarioResource.asignarClave", Set.of(ADMIN)));
+
+    @Test
+    void cadaEndpointProtegidoDeclaraExactamenteLosRolesDeLaMatriz() throws Exception {
+        Map<String, Set<String>> declarados = new TreeMap<>();
+        for (Class<?> clase : clasesDeRecursos()) {
+            for (Method metodo : clase.getDeclaredMethods()) {
+                boolean endpoint = Arrays.stream(metodo.getAnnotations())
+                        .anyMatch(a -> a.annotationType().isAnnotationPresent(HttpMethod.class));
+                if (!endpoint || metodo.isAnnotationPresent(PermitAll.class)) {
+                    continue;
+                }
+                RolesAllowed roles = metodo.getAnnotation(RolesAllowed.class);
+                declarados.put(clase.getSimpleName() + "." + metodo.getName(),
+                        roles == null ? Set.of() : Set.of(roles.value()));
+            }
+        }
+        assertEquals(new TreeMap<>(MATRIZ), declarados);
+    }
+
+    @Test
+    void lasConstantesDeRolesCoincidenConLaTablaRolDeOracle() throws Exception {
+        Set<String> valores = new TreeSet<>();
+        for (Field campo : Roles.class.getDeclaredFields()) {
+            if (Modifier.isStatic(campo.getModifiers()) && campo.getType() == String.class) {
+                campo.setAccessible(true);
+                valores.add((String) campo.get(null));
+            }
+        }
+        assertEquals(new TreeSet<>(TODOS), valores);
+    }
+
+    @Test
+    void crearPedidoSoloAdministradorYSucursal() {
+        for (String rol : TODOS) {
+            int esperado = Set.of(ADMIN, SUCURSAL).contains(rol) ? 201 : 403;
+            assertEquals(esperado, llamar(rol, "POST", "pedidos", "{}"), rol);
+        }
+    }
+
+    @Test
+    void despacharSoloAdministradorYDespacho() {
+        for (String rol : TODOS) {
+            int esperado = Set.of(ADMIN, DESPACHO).contains(rol) ? 201 : 403;
+            assertEquals(esperado, llamar(rol, "POST", "pedidos/2/despacho", "{\"idUsuario\":1}"), rol);
+        }
+    }
+
+    @Test
+    void ajustesDeInventarioSoloAdministradorYBodega() {
+        for (String rol : TODOS) {
+            int esperado = Set.of(ADMIN, BODEGA).contains(rol) ? 200 : 403;
+            assertEquals(esperado, llamar(rol, "POST", "inventario/productos/33/entradas",
+                    "{\"idUsuario\":1,\"cantidad\":1}"), rol);
+        }
+    }
+
+    @Test
+    void detalleDeProduccionNoLoVenSucursalBodegaNiDespacho() {
+        for (String rol : TODOS) {
+            int esperado = Set.of(ADMIN, GERENTE, PRODUCCION).contains(rol) ? 200 : 403;
+            assertEquals(esperado, llamar(rol, "GET", "producciones/4/detalle", null), rol);
+        }
+    }
+
+    private static int llamar(String rol, String metodo, String ruta, String json) {
+        ApplicationHandler handler = new ApplicationHandler(new ResourceConfig()
+                .register(new PedidoResource(new PedidoService() {
+                    @Override
+                    public long crearPedido(CrearPedidoDTO solicitud) {
+                        return 501;
+                    }
+                }))
+                .register(new DespachoResource(new DespachoService() {
+                    @Override
+                    public Despacho despacharPedido(long idPedido, long idUsuario, String observacion) {
+                        return new Despacho();
+                    }
+                }))
+                .register(new InventarioResource(new InventarioService() {
+                    @Override
+                    public ExistenciaDTO registrarEntrada(long idProducto, long idUsuario,
+                            BigDecimal cantidad, String observacion) {
+                        return new ExistenciaDTO(idProducto, BigDecimal.ONE);
+                    }
+                }))
+                .register(new ProduccionResource(new ProduccionService() {
+                    @Override
+                    public List<ProduccionDetalle> consultarDetalle(long idProduccion) {
+                        return List.of();
+                    }
+                }))
+                .register(new SesionConRol(rol))
+                .register(AutorizacionFeature.class)
+                .register(JacksonObjectMapperProvider.class)
+                .register(ApiExceptionMapper.class));
+        URI base = URI.create("http://localhost/api/");
+        ContainerRequest request = new ContainerRequest(base, base.resolve(ruta), metodo, null,
+                new MapPropertiesDelegate(), null);
+        if (json != null) {
+            request.getHeaders().putSingle("Content-Type", "application/json");
+            request.setEntityStream(new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)));
+        }
+        try {
+            return handler.apply(request).get().getStatus();
+        } catch (Exception exception) {
+            throw new AssertionError(exception);
+        }
+    }
+
+    /** Hace de SesionFilter con un usuario del rol indicado. */
+    @Priority(Priorities.AUTHENTICATION)
+    private static final class SesionConRol implements ContainerRequestFilter {
+
+        private final String rol;
+
+        SesionConRol(String rol) {
+            this.rol = rol;
+        }
+
+        @Override
+        public void filter(ContainerRequestContext requestContext) {
+            requestContext.setSecurityContext(new UsuarioSecurityContext(
+                    new UsuarioSesion(1, "u", "Usuario", rol, null), false));
+        }
+    }
+
+    private static List<Class<?>> clasesDeRecursos() throws Exception {
+        java.nio.file.Path carpeta = java.nio.file.Path.of(
+                HealthResource.class.getProtectionDomain().getCodeSource().getLocation().toURI())
+                .resolve("gt/edu/umg/sancarlos/resource");
+        try (Stream<java.nio.file.Path> archivos = Files.list(carpeta)) {
+            List<Class<?>> clases = archivos
+                    .map(a -> a.getFileName().toString())
+                    .filter(n -> n.endsWith(".class") && !n.contains("$"))
+                    .map(n -> cargar("gt.edu.umg.sancarlos.resource." + n.substring(0, n.length() - 6)))
+                    .filter(c -> c.isAnnotationPresent(Path.class))
+                    .collect(Collectors.toList());
+            assertTrue(clases.size() >= 9, "clases de recursos: " + clases);
+            return clases;
+        }
+    }
+
+    private static Class<?> cargar(String nombre) {
+        try {
+            return Class.forName(nombre);
+        } catch (ClassNotFoundException exception) {
+            throw new AssertionError(exception);
+        }
+    }
+}

@@ -2,6 +2,7 @@ package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.RecetaActivaDTO;
 import gt.edu.umg.sancarlos.service.RecetaService;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -27,6 +28,8 @@ public class RecetaResource {
 
     @GET
     @Path("productos/{idProducto}/activa")
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.SUCURSAL,
+            Roles.PRODUCCION, Roles.BODEGA, Roles.DESPACHO})
     public Response buscarRecetaActiva(@PathParam("idProducto") String idProducto) {
         final long id;
         try {

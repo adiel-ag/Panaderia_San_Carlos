@@ -2,6 +2,7 @@ package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.MovimientoInventarioDTO;
 import gt.edu.umg.sancarlos.service.InventarioService;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -29,6 +30,8 @@ public class InventarioResource {
 
     @GET
     @Path("productos/{idProducto}/existencia")
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.PRODUCCION,
+            Roles.BODEGA, Roles.DESPACHO})
     public Response consultarExistencia(@PathParam("idProducto") String idProducto) {
         long id = parsearIdProducto(idProducto);
         return Response.ok(inventarioService.consultarExistencia(id)).build();
@@ -38,6 +41,7 @@ public class InventarioResource {
     @POST
     @Path("productos/{idProducto}/entradas")
     @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.BODEGA})
     public Response registrarEntrada(@PathParam("idProducto") String idProducto,
             MovimientoInventarioDTO solicitud) {
         long id = parsearIdProducto(idProducto);
@@ -50,6 +54,7 @@ public class InventarioResource {
     @POST
     @Path("productos/{idProducto}/salidas")
     @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.BODEGA})
     public Response registrarSalida(@PathParam("idProducto") String idProducto,
             MovimientoInventarioDTO solicitud) {
         long id = parsearIdProducto(idProducto);
