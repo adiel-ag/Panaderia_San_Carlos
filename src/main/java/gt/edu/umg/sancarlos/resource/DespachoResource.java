@@ -48,11 +48,15 @@ public class DespachoResource {
 
     @GET
     @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.SUCURSAL, Roles.DESPACHO})
-    public Response buscarDespacho(@PathParam("id") String id) {
+    public Response buscarDespacho(@PathParam("id") String id,
+            @Context SecurityContext seguridad) {
         long idPedido = parsearIdPedido(id);
         Despacho despacho = despachoService.buscarPorPedido(idPedido)
                 .orElseThrow(() -> new NotFoundException(
                         "No existe un despacho para el pedido " + idPedido));
+        if (!AlcanceSucursal.puedeVer(UsuarioActual.de(seguridad), despacho.getIdSucursal())) {
+            throw new NotFoundException("No existe un despacho para el pedido " + idPedido);
+        }
         return Response.ok(despacho).build();
     }
 

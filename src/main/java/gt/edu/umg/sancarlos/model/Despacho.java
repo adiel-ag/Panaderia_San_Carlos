@@ -7,6 +7,7 @@ public class Despacho {
 
     private long idDespacho;
     private long idPedido;
+    private Long idSucursal;
     private long idUsuario;
     private LocalDateTime fechaDespacho;
     private String estado;
@@ -16,6 +17,8 @@ public class Despacho {
     public void setIdDespacho(long idDespacho) { this.idDespacho = idDespacho; }
     public long getIdPedido() { return idPedido; }
     public void setIdPedido(long idPedido) { this.idPedido = idPedido; }
+    public Long getIdSucursal() { return idSucursal; }
+    public void setIdSucursal(Long idSucursal) { this.idSucursal = idSucursal; }
     public long getIdUsuario() { return idUsuario; }
     public void setIdUsuario(long idUsuario) { this.idUsuario = idUsuario; }
     public LocalDateTime getFechaDespacho() { return fechaDespacho; }

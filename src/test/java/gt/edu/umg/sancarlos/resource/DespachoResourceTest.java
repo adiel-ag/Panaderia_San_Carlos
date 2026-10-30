@@ -7,14 +7,19 @@ import gt.edu.umg.sancarlos.exception.DespachoConflictoException;
 import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
 import gt.edu.umg.sancarlos.model.Despacho;
 import gt.edu.umg.sancarlos.model.Pedido;
+import gt.edu.umg.sancarlos.model.UsuarioSesion;
 import gt.edu.umg.sancarlos.service.DespachoService;
 import gt.edu.umg.sancarlos.service.PedidoService;
+import jakarta.annotation.Priority;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Priorities;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
@@ -54,7 +59,8 @@ class DespachoResourceTest {
                 String.class, DespacharPedidoDTO.class, UriInfo.class, SecurityContext.class);
         assertNotNull(despachar.getAnnotation(POST.class));
         assertEquals(MediaType.APPLICATION_JSON, despachar.getAnnotation(Consumes.class).value()[0]);
-        assertNotNull(DespachoResource.class.getMethod("buscarDespacho", String.class)
+        assertNotNull(DespachoResource.class.getMethod("buscarDespacho", String.class,
+                SecurityContext.class)
                 .getAnnotation(GET.class));
     }
 
@@ -113,19 +119,53 @@ class DespachoResourceTest {
         };
         DespachoResource resource = new DespachoResource(service);
 
-        try (Response response = resource.buscarDespacho("501")) {
+        try (Response response = resource.buscarDespacho("501",
+                SesionDePrueba.usuario(7, Roles.GERENTE))) {
             assertEquals(200, response.getStatus());
             assertSame(despacho, response.getEntity());
         }
-        assertThrows(NotFoundException.class, () -> resource.buscarDespacho("502"));
+        assertThrows(NotFoundException.class, () -> resource.buscarDespacho("502",
+                SesionDePrueba.usuario(7, Roles.GERENTE)));
+    }
+
+    @Test
+    void sucursalVeSoloSuDespachoConElMismo404QueElInexistente() {
+        DespachoResource resource = new DespachoResource(new DespachoService() {
+            @Override
+            public Optional<Despacho> buscarPorPedido(long idPedido) {
+                return idPedido == 501 ? Optional.of(despacho()) : Optional.empty();
+            }
+        });
+        try (Response response = resource.buscarDespacho("501", usuarioConSucursal(Roles.SUCURSAL, 2L))) {
+            assertEquals(200, response.getStatus());
+        }
+        SecurityContext sucursal1 = usuarioConSucursal(Roles.SUCURSAL, 1L);
+        NotFoundException ajeno = assertThrows(NotFoundException.class,
+                () -> resource.buscarDespacho("501", sucursal1));
+        DespachoResource sinDespacho = new DespachoResource(new DespachoService() {
+            @Override
+            public Optional<Despacho> buscarPorPedido(long idPedido) {
+                return Optional.empty();
+            }
+        });
+        NotFoundException inexistente = assertThrows(NotFoundException.class,
+                () -> sinDespacho.buscarDespacho("501", sucursal1));
+        assertEquals(inexistente.getMessage(), ajeno.getMessage());
+        assertThrows(NotFoundException.class,
+                () -> resource.buscarDespacho("501", usuarioConSucursal(Roles.SUCURSAL, null)));
+        for (String rol : new String[]{Roles.ADMINISTRADOR, Roles.GERENTE}) {
+            try (Response response = resource.buscarDespacho("501", usuarioConSucursal(rol, 1L))) {
+                assertEquals(200, response.getStatus(), rol);
+            }
+        }
     }
 
     @Test
     void rechazaIdYCuerpoInvalidosCon400() {
         DespachoResource resource = new DespachoResource(new DespachoService());
 
-        assertThrows(BadRequestException.class, () -> resource.buscarDespacho("abc"));
-        assertThrows(BadRequestException.class, () -> resource.buscarDespacho("0"));
+        assertThrows(BadRequestException.class, () -> resource.buscarDespacho("abc", null));
+        assertThrows(BadRequestException.class, () -> resource.buscarDespacho("0", null));
         assertThrows(BadRequestException.class,
                 () -> resource.despacharPedido("-1", new DespacharPedidoDTO(), uriInfo(), SesionDePrueba.usuario(7, "DESPACHO")));
         assertThrows(NoAutenticadoException.class,
@@ -171,6 +211,7 @@ class DespachoResourceTest {
         ApplicationHandler handler = new ApplicationHandler(new ResourceConfig()
                 .register(new PedidoResource(pedidoService))
                 .register(new DespachoResource(despachoService))
+                .register(SesionGerente.class)
                 .register(JacksonObjectMapperProvider.class)
                 .register(ApiExceptionMapper.class));
 
@@ -189,6 +230,7 @@ class DespachoResourceTest {
         String json = objectMapper.writeValueAsString(despacho());
         assertTrue(json.contains("\"fechaDespacho\":\"2026-10-27T10:30:00\""), json);
         assertTrue(json.contains("\"estado\":\"DESPACHADO\""), json);
+        assertTrue(json.contains("\"idSucursal\":2"), json);
     }
 
     private static ContainerResponse get(ApplicationHandler handler, String ruta) throws Exception {
@@ -202,11 +244,17 @@ class DespachoResourceTest {
         Despacho despacho = new Despacho();
         despacho.setIdDespacho(12);
         despacho.setIdPedido(501);
+        despacho.setIdSucursal(2L);
         despacho.setIdUsuario(7);
         despacho.setFechaDespacho(LocalDateTime.of(2026, 10, 27, 10, 30));
         despacho.setEstado("DESPACHADO");
         despacho.setObservacion("Ruta norte");
         return despacho;
+    }
+
+    private static SecurityContext usuarioConSucursal(String rol, Long idSucursal) {
+        return new UsuarioSecurityContext(
+                new UsuarioSesion(7, "u", "Usuario", rol, idSucursal), false);
     }
 
     private static UriInfo uriInfo() {
@@ -217,5 +265,14 @@ class DespachoResourceTest {
                     }
                     return null;
                 });
+    }
+
+    @Priority(Priorities.AUTHENTICATION)
+    private static final class SesionGerente implements ContainerRequestFilter {
+
+        @Override
+        public void filter(ContainerRequestContext requestContext) {
+            requestContext.setSecurityContext(usuarioConSucursal(Roles.GERENTE, null));
+        }
     }
 }

@@ -4,6 +4,7 @@ import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
 import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
 import gt.edu.umg.sancarlos.model.Pedido;
 import gt.edu.umg.sancarlos.model.PedidoDetalle;
+import gt.edu.umg.sancarlos.model.UsuarioSesion;
 import gt.edu.umg.sancarlos.service.PedidoService;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
@@ -34,7 +35,8 @@ class PedidoResourceTest {
         assertEquals("/pedidos", PedidoResource.class.getAnnotation(Path.class).value());
         var create = PedidoResource.class.getMethod("crearPedido", CrearPedidoDTO.class, UriInfo.class,
                 SecurityContext.class);
-        var find = PedidoResource.class.getMethod("buscarPedidoPorId", String.class);
+        var find = PedidoResource.class.getMethod("buscarPedidoPorId", String.class,
+                SecurityContext.class);
         assertNotNull(create.getAnnotation(POST.class));
         assertNotNull(find.getAnnotation(GET.class));
         assertEquals("{id}", find.getAnnotation(Path.class).value());
@@ -80,7 +82,8 @@ class PedidoResourceTest {
             }
         };
 
-        try (Response response = new PedidoResource(service).buscarPedidoPorId("501")) {
+        try (Response response = new PedidoResource(service).buscarPedidoPorId("501",
+                SesionDePrueba.usuario(7, Roles.GERENTE))) {
             assertEquals(200, response.getStatus());
             Pedido body = assertInstanceOf(Pedido.class, response.getEntity());
             assertEquals("PAN", body.getDetalles().get(0).getNombreProducto());
@@ -97,9 +100,49 @@ class PedidoResourceTest {
         };
         PedidoResource resource = new PedidoResource(emptyService);
 
-        assertThrows(BadRequestException.class, () -> resource.buscarPedidoPorId("abc"));
-        assertThrows(BadRequestException.class, () -> resource.buscarPedidoPorId("0"));
-        assertThrows(NotFoundException.class, () -> resource.buscarPedidoPorId("501"));
+        assertThrows(BadRequestException.class, () -> resource.buscarPedidoPorId("abc", null));
+        assertThrows(BadRequestException.class, () -> resource.buscarPedidoPorId("0", null));
+        assertThrows(NotFoundException.class, () -> resource.buscarPedidoPorId("501",
+                SesionDePrueba.usuario(7, Roles.GERENTE)));
+    }
+
+    @Test
+    void sucursalVeSoloSuPedidoConElMismo404QueElInexistente() {
+        Pedido pedido = pedidoConDetalle();
+        PedidoResource resource = new PedidoResource(new PedidoService() {
+            @Override
+            public Optional<Pedido> buscarPedidoPorId(long idPedido) {
+                return idPedido == 501 ? Optional.of(pedido) : Optional.empty();
+            }
+        });
+        SecurityContext sucursal2 = usuarioConSucursal(Roles.SUCURSAL, 2L);
+        try (Response response = resource.buscarPedidoPorId("501", sucursal2)) {
+            assertEquals(200, response.getStatus());
+        }
+        SecurityContext sucursal1 = usuarioConSucursal(Roles.SUCURSAL, 1L);
+        NotFoundException ajeno = assertThrows(NotFoundException.class,
+                () -> resource.buscarPedidoPorId("501", sucursal1));
+        PedidoResource sinPedido = new PedidoResource(new PedidoService() {
+            @Override
+            public Optional<Pedido> buscarPedidoPorId(long idPedido) {
+                return Optional.empty();
+            }
+        });
+        NotFoundException inexistente = assertThrows(NotFoundException.class,
+                () -> sinPedido.buscarPedidoPorId("501", sucursal1));
+        assertEquals(inexistente.getMessage(), ajeno.getMessage());
+        assertThrows(NotFoundException.class,
+                () -> resource.buscarPedidoPorId("501", usuarioConSucursal(Roles.SUCURSAL, null)));
+        for (String rol : new String[]{Roles.ADMINISTRADOR, Roles.GERENTE}) {
+            try (Response response = resource.buscarPedidoPorId("501", usuarioConSucursal(rol, 1L))) {
+                assertEquals(200, response.getStatus(), rol);
+            }
+        }
+    }
+
+    private static SecurityContext usuarioConSucursal(String rol, Long idSucursal) {
+        return new UsuarioSecurityContext(
+                new UsuarioSesion(7, "u", "Usuario", rol, idSucursal), false);
     }
 
     private static Pedido pedidoConDetalle() {

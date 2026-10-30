@@ -15,14 +15,16 @@ public class DespachoDAO {
     private static final String SP_DESPACHAR_PEDIDO =
             "{ call PKG_DESPACHO.SP_DESPACHAR_PEDIDO(?, ?, ?) }";
     private static final String SQL_BUSCAR_POR_PEDIDO = """
-            SELECT id_despacho,
-                   id_pedido,
-                   id_usuario,
-                   fecha_despacho,
-                   estado,
-                   observacion
-              FROM DESPACHO
-             WHERE id_pedido = ?
+            SELECT d.id_despacho,
+                   d.id_pedido,
+                   p.id_sucursal,
+                   d.id_usuario,
+                   d.fecha_despacho,
+                   d.estado,
+                   d.observacion
+              FROM DESPACHO d
+              JOIN PEDIDO p ON p.id_pedido = d.id_pedido
+             WHERE d.id_pedido = ?
             """;
 
     public void despacharPedido(Connection connection, long idPedido, long idUsuario,
@@ -47,6 +49,8 @@ public class DespachoDAO {
                 Despacho despacho = new Despacho();
                 despacho.setIdDespacho(resultSet.getLong("id_despacho"));
                 despacho.setIdPedido(resultSet.getLong("id_pedido"));
+                long idSucursal = resultSet.getLong("id_sucursal");
+                despacho.setIdSucursal(resultSet.wasNull() ? null : idSucursal);
                 despacho.setIdUsuario(resultSet.getLong("id_usuario"));
                 Timestamp fecha = resultSet.getTimestamp("fecha_despacho");
                 despacho.setFechaDespacho(fecha == null ? null : fecha.toLocalDateTime());

@@ -55,7 +55,8 @@ public class PedidoResource {
     @Path("{id}")
     @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.SUCURSAL,
             Roles.PRODUCCION, Roles.DESPACHO})
-    public Response buscarPedidoPorId(@PathParam("id") String id) {
+    public Response buscarPedidoPorId(@PathParam("id") String id,
+            @Context SecurityContext seguridad) {
         final long idPedido;
         try {
             idPedido = Long.parseLong(id);
@@ -67,8 +68,12 @@ public class PedidoResource {
         }
 
         Optional<Pedido> pedido = pedidoService.buscarPedidoPorId(idPedido);
-        return Response.ok(pedido.orElseThrow(() -> new NotFoundException(
-                "No existe un pedido con ID " + idPedido))).build();
+        Pedido encontrado = pedido.orElseThrow(() -> new NotFoundException(
+                "No existe un pedido con ID " + idPedido));
+        if (!AlcanceSucursal.puedeVer(UsuarioActual.de(seguridad), encontrado.getIdSucursal())) {
+            throw new NotFoundException("No existe un pedido con ID " + idPedido);
+        }
+        return Response.ok(encontrado).build();
     }
 }
 
