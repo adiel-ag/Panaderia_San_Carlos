@@ -2,7 +2,12 @@ package gt.edu.umg.sancarlos.resource;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import gt.edu.umg.sancarlos.dto.ApiError;
+import gt.edu.umg.sancarlos.exception.AccesoDenegadoException;
+import gt.edu.umg.sancarlos.exception.CredencialesInvalidasException;
+import gt.edu.umg.sancarlos.exception.CuentaBloqueadaException;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
+import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
+import gt.edu.umg.sancarlos.exception.UsuarioNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.DespachoConflictoException;
 import gt.edu.umg.sancarlos.exception.DespachoNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.InventarioConflictoException;
@@ -41,6 +46,16 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
             return crearRespuesta(Response.Status.BAD_REQUEST,
                     "Solicitud inválida", JSON_INVALIDO);
         }
+        if (exception instanceof CredencialesInvalidasException
+                || exception instanceof CuentaBloqueadaException
+                || exception instanceof NoAutenticadoException) {
+            return crearRespuesta(Response.Status.UNAUTHORIZED,
+                    "No autenticado", exception.getMessage());
+        }
+        if (exception instanceof AccesoDenegadoException) {
+            return crearRespuesta(Response.Status.FORBIDDEN,
+                    "Acceso denegado", exception.getMessage());
+        }
         if (exception instanceof BadRequestException
                 || exception instanceof IllegalArgumentException
                 || exception instanceof PedidoSolicitudInvalidaException
@@ -54,7 +69,8 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
                 || exception instanceof PedidoNoEncontradoException
                 || exception instanceof ProduccionNoEncontradaException
                 || exception instanceof InventarioNoEncontradoException
-                || exception instanceof DespachoNoEncontradoException) {
+                || exception instanceof DespachoNoEncontradoException
+                || exception instanceof UsuarioNoEncontradoException) {
             return crearRespuesta(Response.Status.NOT_FOUND,
                     "Recurso no encontrado", exception.getMessage());
         }

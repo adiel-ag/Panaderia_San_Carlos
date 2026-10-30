@@ -5,7 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import gt.edu.umg.sancarlos.dto.ApiError;
 import gt.edu.umg.sancarlos.dto.DespacharPedidoDTO;
 import java.util.List;
+import gt.edu.umg.sancarlos.exception.AccesoDenegadoException;
+import gt.edu.umg.sancarlos.exception.CredencialesInvalidasException;
+import gt.edu.umg.sancarlos.exception.CuentaBloqueadaException;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
+import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
+import gt.edu.umg.sancarlos.exception.UsuarioNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.DespachoConflictoException;
 import gt.edu.umg.sancarlos.exception.DespachoNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.InventarioConflictoException;
@@ -127,6 +132,26 @@ class ApiExceptionMapperTest {
                 assertEquals("El cuerpo JSON no es válido.", message);
                 assertFalse(message.contains("line"));
             }
+        }
+    }
+
+    @Test
+    void convierteErroresDeSesionEn401403Y404() {
+        try (Response credenciales = mapper.toResponse(new CredencialesInvalidasException(
+                        "Usuario o contraseña incorrectos.", new SQLException("ORA-20602")));
+             Response bloqueada = mapper.toResponse(new CuentaBloqueadaException(
+                        "La cuenta está bloqueada temporalmente", new SQLException("ORA-20603")));
+             Response sinSesion = mapper.toResponse(new NoAutenticadoException("Debe iniciar sesión.", null));
+             Response denegado = mapper.toResponse(new AccesoDenegadoException("Sin permiso", null));
+             Response usuario = mapper.toResponse(new UsuarioNoEncontradoException("No existe", null))) {
+            assertEquals(401, credenciales.getStatus());
+            assertEquals(401, bloqueada.getStatus());
+            assertEquals(401, sinSesion.getStatus());
+            assertEquals(403, denegado.getStatus());
+            assertEquals(404, usuario.getStatus());
+            assertEquals("Usuario o contraseña incorrectos.",
+                    ((ApiError) credenciales.getEntity()).getMessage());
+            assertFalse(((ApiError) credenciales.getEntity()).getMessage().contains("ORA-"));
         }
     }
 

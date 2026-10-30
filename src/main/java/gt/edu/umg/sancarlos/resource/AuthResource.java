@@ -1,0 +1,81 @@
+package gt.edu.umg.sancarlos.resource;
+
+import gt.edu.umg.sancarlos.dto.LoginDTO;
+import gt.edu.umg.sancarlos.dto.MensajeDTO;
+import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
+import gt.edu.umg.sancarlos.model.UsuarioSesion;
+import gt.edu.umg.sancarlos.service.AutenticacionService;
+import gt.edu.umg.sancarlos.service.AutenticacionService.SesionIniciada;
+import jakarta.annotation.security.PermitAll;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
+import java.util.Arrays;
+
+/** Inicio y cierre de sesion; la sesion se guarda en una cookie HttpOnly. */
+@Path("/auth")
+@Produces(MediaType.APPLICATION_JSON)
+public class AuthResource {
+
+    private final AutenticacionService autenticacionService;
+
+    public AuthResource() {
+        this(new AutenticacionService());
+    }
+
+    AuthResource(AutenticacionService autenticacionService) {
+        this.autenticacionService = autenticacionService;
+    }
+
+    @POST
+    @Path("login")
+    @PermitAll
+    @SinRevalidarSesion
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response iniciarSesion(LoginDTO solicitud, @Context HttpServletRequest request) {
+        if (solicitud == null) {
+            throw new BadRequestException("El cuerpo de la solicitud es obligatorio.");
+        }
+        char[] clave = solicitud.getPassword() == null
+                ? null : solicitud.getPassword().toCharArray();
+        try {
+            SesionIniciada sesion = autenticacionService.iniciarSesion(
+                    solicitud.getUsername(), clave);
+            SesionUsuario.iniciar(request, sesion);
+            return Response.ok(sesion.usuario()).build();
+        } finally {
+            if (clave != null) {
+                Arrays.fill(clave, '\0');
+            }
+        }
+    }
+
+    /** No consulta Oracle: cierra la sesion aunque la base falle o tarde. */
+    @POST
+    @Path("logout")
+    @PermitAll
+    @SinRevalidarSesion
+    public Response cerrarSesion(@Context HttpServletRequest request) {
+        SesionUsuario.cerrar(request);
+        return Response.ok(new MensajeDTO("Sesión cerrada")).build();
+    }
+
+    @GET
+    @Path("me")
+    @PermitAll
+    public Response usuarioActual(@Context SecurityContext seguridad) {
+        SesionNoVerificada.exigirVerificada(seguridad);
+        if (seguridad == null || !(seguridad.getUserPrincipal() instanceof UsuarioSesion usuario)) {
+            throw new NoAutenticadoException("Debe iniciar sesión.", null);
+        }
+        return Response.ok(usuario).build();
+    }
+}
