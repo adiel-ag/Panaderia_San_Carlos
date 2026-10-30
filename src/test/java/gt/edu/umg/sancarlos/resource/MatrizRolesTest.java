@@ -2,13 +2,19 @@ package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
 import gt.edu.umg.sancarlos.dto.ExistenciaDTO;
+import gt.edu.umg.sancarlos.dto.RecetaActivaDTO;
 import gt.edu.umg.sancarlos.model.Despacho;
+import gt.edu.umg.sancarlos.model.Pedido;
+import gt.edu.umg.sancarlos.model.Producto;
 import gt.edu.umg.sancarlos.model.ProduccionDetalle;
 import gt.edu.umg.sancarlos.model.UsuarioSesion;
 import gt.edu.umg.sancarlos.service.DespachoService;
 import gt.edu.umg.sancarlos.service.InventarioService;
 import gt.edu.umg.sancarlos.service.PedidoService;
 import gt.edu.umg.sancarlos.service.ProduccionService;
+import gt.edu.umg.sancarlos.service.ProductoService;
+import gt.edu.umg.sancarlos.service.RecetaService;
+import gt.edu.umg.sancarlos.service.AutenticacionService;
 import jakarta.annotation.Priority;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
@@ -28,6 +34,7 @@ import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -47,6 +54,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * @RolesAllowed sin actualizar esta tabla (o al reves), la prueba falla.
  */
 class MatrizRolesTest {
+
+    private record CasoHttp(String metodo, String ruta, String json) {
+    }
 
     private static final String ADMIN = "ADMINISTRADOR";
     private static final String GERENTE = "GERENTE";
@@ -74,6 +84,51 @@ class MatrizRolesTest {
             Map.entry("DespachoResource.despacharPedido", Set.of(ADMIN, DESPACHO)),
             Map.entry("DespachoResource.buscarDespacho", Set.of(ADMIN, GERENTE, SUCURSAL, DESPACHO)),
             Map.entry("UsuarioResource.asignarClave", Set.of(ADMIN)));
+
+    private static final Map<String, CasoHttp> CASOS_HTTP = Map.ofEntries(
+            Map.entry("ProductoResource.listarProductos", new CasoHttp("GET", "productos", null)),
+            Map.entry("ProductoResource.buscarProductoPorId", new CasoHttp("GET", "productos/33", null)),
+            Map.entry("RecetaResource.buscarRecetaActiva", new CasoHttp("GET", "recetas/productos/33/activa", null)),
+            Map.entry("PedidoResource.crearPedido", new CasoHttp("POST", "pedidos", "{\"idSucursal\":1}")),
+            Map.entry("PedidoResource.buscarPedidoPorId", new CasoHttp("GET", "pedidos/2", null)),
+            Map.entry("ProduccionResource.crearProduccion", new CasoHttp("POST", "producciones", "{}")),
+            Map.entry("ProduccionResource.asociarPedido", new CasoHttp("POST", "producciones/4/pedidos", "{\"idPedido\":2}")),
+            Map.entry("ProduccionResource.generarPlan", new CasoHttp("POST", "producciones/4/generar-plan", null)),
+            Map.entry("ProduccionResource.registrarCantidadProducida", new CasoHttp("PUT", "producciones/4/productos/33/cantidad-producida", "{\"cantidadProducida\":1}")),
+            Map.entry("ProduccionResource.finalizarProduccion", new CasoHttp("POST", "producciones/4/finalizar", null)),
+            Map.entry("ProduccionResource.consultarDetalle", new CasoHttp("GET", "producciones/4/detalle", null)),
+            Map.entry("InventarioResource.consultarExistencia", new CasoHttp("GET", "inventario/productos/33/existencia", null)),
+            Map.entry("InventarioResource.registrarEntrada", new CasoHttp("POST", "inventario/productos/33/entradas", "{\"cantidad\":1}")),
+            Map.entry("InventarioResource.registrarSalida", new CasoHttp("POST", "inventario/productos/33/salidas", "{\"cantidad\":1}")),
+            Map.entry("DespachoResource.despacharPedido", new CasoHttp("POST", "pedidos/2/despacho", null)),
+            Map.entry("DespachoResource.buscarDespacho", new CasoHttp("GET", "pedidos/2/despacho", null)),
+            Map.entry("UsuarioResource.asignarClave", new CasoHttp("PUT", "usuarios/7/clave", "{\"password\":\"clave-de-prueba\"}")));
+
+    @Test
+    void cadaRolRecibe403OExitoEnCadaEndpointPorHttp() {
+        assertEquals(MATRIZ.keySet(), CASOS_HTTP.keySet());
+        for (Map.Entry<String, CasoHttp> entrada : CASOS_HTTP.entrySet()) {
+            CasoHttp caso = entrada.getValue();
+            for (String rol : TODOS) {
+                int estado = llamar(rol, caso.metodo(), caso.ruta(), caso.json());
+                String contexto = entrada.getKey() + " con " + rol;
+                if (MATRIZ.get(entrada.getKey()).contains(rol)) {
+                    assertTrue(estado >= 200 && estado < 300, contexto + ": HTTP " + estado);
+                } else {
+                    assertEquals(403, estado, contexto);
+                }
+            }
+        }
+    }
+
+    @Test
+    void sinSesionTodosLosEndpointsResponden401PorHttp() {
+        assertEquals(MATRIZ.keySet(), CASOS_HTTP.keySet());
+        for (Map.Entry<String, CasoHttp> entrada : CASOS_HTTP.entrySet()) {
+            CasoHttp caso = entrada.getValue();
+            assertEquals(401, llamar(null, caso.metodo(), caso.ruta(), caso.json()), entrada.getKey());
+        }
+    }
 
     @Test
     void cadaEndpointProtegidoDeclaraExactamenteLosRolesDeLaMatriz() throws Exception {
@@ -140,10 +195,35 @@ class MatrizRolesTest {
 
     private static int llamar(String rol, String metodo, String ruta, String json) {
         ApplicationHandler handler = new ApplicationHandler(new ResourceConfig()
+                .register(new ProductoResource(new ProductoService() {
+                    @Override
+                    public List<Producto> listarProductos() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public Optional<Producto> buscarProductoPorId(long idProducto) {
+                        return Optional.of(new Producto());
+                    }
+                }))
+                .register(new RecetaResource(new RecetaService() {
+                    @Override
+                    public RecetaActivaDTO buscarRecetaActiva(long idProducto) {
+                        return new RecetaActivaDTO(idProducto, 9);
+                    }
+                }))
                 .register(new PedidoResource(new PedidoService() {
                     @Override
                     public long crearPedido(CrearPedidoDTO solicitud) {
                         return 501;
+                    }
+
+                    @Override
+                    public Optional<Pedido> buscarPedidoPorId(long idPedido) {
+                        Pedido pedido = new Pedido();
+                        pedido.setIdPedido(idPedido);
+                        pedido.setIdSucursal(1);
+                        return Optional.of(pedido);
                     }
                 }))
                 .register(new DespachoResource(new DespachoService() {
@@ -151,18 +231,63 @@ class MatrizRolesTest {
                     public Despacho despacharPedido(long idPedido, long idUsuario, String observacion) {
                         return new Despacho();
                     }
+
+                    @Override
+                    public Optional<Despacho> buscarPorPedido(long idPedido) {
+                        Despacho despacho = new Despacho();
+                        despacho.setIdPedido(idPedido);
+                        despacho.setIdSucursal(1L);
+                        return Optional.of(despacho);
+                    }
                 }))
                 .register(new InventarioResource(new InventarioService() {
+                    @Override
+                    public ExistenciaDTO consultarExistencia(long idProducto) {
+                        return new ExistenciaDTO(idProducto, BigDecimal.ONE);
+                    }
+
                     @Override
                     public ExistenciaDTO registrarEntrada(long idProducto, long idUsuario,
                             BigDecimal cantidad, String observacion) {
                         return new ExistenciaDTO(idProducto, BigDecimal.ONE);
                     }
+
+                    @Override
+                    public ExistenciaDTO registrarSalida(long idProducto, long idUsuario,
+                            BigDecimal cantidad, String observacion) {
+                        return new ExistenciaDTO(idProducto, BigDecimal.ZERO);
+                    }
                 }))
                 .register(new ProduccionResource(new ProduccionService() {
                     @Override
+                    public long crearProduccion(long idUsuario, String observacion) {
+                        return 4;
+                    }
+
+                    @Override
+                    public void asociarPedido(long idProduccion, long idPedido) {
+                    }
+
+                    @Override
+                    public void generarPlan(long idProduccion) {
+                    }
+
+                    @Override
+                    public void registrarProducido(long idProduccion, long idProducto, BigDecimal cantidad) {
+                    }
+
+                    @Override
+                    public void finalizarProduccion(long idProduccion, long idUsuario) {
+                    }
+
+                    @Override
                     public List<ProduccionDetalle> consultarDetalle(long idProduccion) {
                         return List.of();
+                    }
+                }))
+                .register(new UsuarioResource(new AutenticacionService() {
+                    @Override
+                    public void establecerClave(long idUsuario, char[] clave) {
                     }
                 }))
                 .register(new SesionConRol(rol))
@@ -195,8 +320,10 @@ class MatrizRolesTest {
 
         @Override
         public void filter(ContainerRequestContext requestContext) {
-            requestContext.setSecurityContext(new UsuarioSecurityContext(
-                    new UsuarioSesion(1, "u", "Usuario", rol, null), false));
+            if (rol != null) {
+                requestContext.setSecurityContext(new UsuarioSecurityContext(
+                        new UsuarioSesion(1, "u", "Usuario", rol, 1L), false));
+            }
         }
     }
 

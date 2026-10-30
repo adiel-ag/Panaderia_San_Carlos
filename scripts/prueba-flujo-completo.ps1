@@ -167,15 +167,19 @@ Write-Host "  Se crearan un pedido, una produccion y un despacho, y se movera in
 Write-Host "  Estos cambios en Oracle son PERMANENTES." -ForegroundColor Yellow
 
 if ($SoloVerificar) {
+    $comprobarCierre = $script:sesionAbierta -and $script:fallas -eq 0
+    Cerrar-Sesion
+    if ($comprobarCierre) {
+        Esperar-Status (Invoke-Api GET "/auth/me") 401 "GET /auth/me despues de logout"
+    }
     Write-Host ""
     Write-Host "Solo verificacion: comprobaciones OK $script:ok, fallas $script:fallas. No se escribio nada."
-    Cerrar-Sesion
     $cliente.Dispose()
     if ($script:fallas -gt 0) { exit 1 } else { exit 0 }
 }
 
 # Las escrituras son permanentes: solo un ADMINISTRADOR puede ejecutarlas desde
-# este script, aunque la API todavia no aplique la matriz de roles.
+# este script; la API tambien aplica la matriz de roles.
 if (-not $esAdministrador) {
     Write-Host ""
     Write-Host "  El flujo completo exige un usuario ADMINISTRADOR; $($usuarioSesion.username) tiene rol $($usuarioSesion.rol). No se escribio nada." -ForegroundColor Red
@@ -289,11 +293,16 @@ catch {
     Write-Host "  ERROR: $($_.Exception.Message)" -ForegroundColor Red
 }
 finally {
+    $comprobarCierre = $script:sesionAbierta -and $script:fallas -eq 0
+    Cerrar-Sesion
+    if ($comprobarCierre) {
+        try { Esperar-Status (Invoke-Api GET "/auth/me") 401 "GET /auth/me despues de logout" }
+        catch { $script:fallas++; Write-Host "  FALLA  GET /auth/me despues de logout: $($_.Exception.Message)" -ForegroundColor Red }
+    }
     Titulo "Resumen"
     Write-Host "  Comprobaciones OK: $script:ok   Fallas: $script:fallas"
     Write-Host "  Registros creados (observacion '$marca'):"
     Write-Host "    pedido=$idPedido  produccion=$idProduccion  despacho=$idDespacho"
-    Cerrar-Sesion
     $cliente.Dispose()
 }
 
