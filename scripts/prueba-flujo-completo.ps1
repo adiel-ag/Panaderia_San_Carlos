@@ -8,7 +8,7 @@
     mueve inventario (consumo de insumos, producto terminado, despacho) y registra un ajuste
     de entrada +1 y salida -1 del producto. Los registros quedan guardados de forma permanente.
 
-    Antes de escribir hace una verificacion de solo lectura y pide confirmacion
+    Antes de escribir hace una verificacion que solo consulta datos del negocio y pide confirmacion
     (escribir SI), salvo que se use -Confirmar.
 
     Ademas del camino feliz, provoca los errores de negocio esperados (409/404/400)
@@ -20,6 +20,10 @@
     del JSON. Las escrituras exigen un usuario ADMINISTRADOR, el unico rol
     que puede pedir, producir, ajustar inventario y despachar: con otro rol el script
     solo permite -SoloVerificar y se niega a escribir. Al terminar cierra la sesion.
+
+    Incluso con -SoloVerificar el inicio de sesion escribe en Oracle: un login correcto
+    actualiza USUARIO_CREDENCIAL (ultimo_acceso, intentos_fallidos a 0, bloqueado_hasta
+    a NULL) y uno fallido suma un intento. Los datos del negocio no se tocan.
 
 .EXAMPLE
     .\scripts\prueba-flujo-completo.ps1 -Usuario admin -SoloVerificar
@@ -38,7 +42,7 @@ param(
     [decimal] $Cantidad   = 10,
     [long[]]  $Insumos    = @(21, 23, 25, 27, 28),  # insumos de la receta activa del producto
     [switch]  $Confirmar,
-    [switch]  $SoloVerificar  # ejecuta solo la verificacion de lectura y termina sin escribir
+    [switch]  $SoloVerificar  # solo verifica y termina sin escribir datos del negocio (el login si escribe, ver arriba)
 )
 
 $ErrorActionPreference = "Stop"
@@ -130,7 +134,7 @@ try {
 }
 if ($login.Status -ne 200) {
     $motivo = if ($login.Datos -and $login.Datos.message) { $login.Datos.message } else { "HTTP $($login.Status)" }
-    Write-Host "  No se pudo iniciar sesion: $motivo No se escribio nada." -ForegroundColor Red
+    Write-Host "  No se pudo iniciar sesion: $motivo No se escribieron datos del negocio." -ForegroundColor Red
     $cliente.Dispose()
     exit 1
 }
@@ -173,7 +177,7 @@ if ($SoloVerificar) {
         Esperar-Status (Invoke-Api GET "/auth/me") 401 "GET /auth/me despues de logout"
     }
     Write-Host ""
-    Write-Host "Solo verificacion: comprobaciones OK $script:ok, fallas $script:fallas. No se escribio nada."
+    Write-Host "Solo verificacion: comprobaciones OK $script:ok, fallas $script:fallas. No se escribieron datos del negocio."
     $cliente.Dispose()
     if ($script:fallas -gt 0) { exit 1 } else { exit 0 }
 }
@@ -182,7 +186,7 @@ if ($SoloVerificar) {
 # este script; la API tambien aplica la matriz de roles.
 if (-not $esAdministrador) {
     Write-Host ""
-    Write-Host "  El flujo completo exige un usuario ADMINISTRADOR; $($usuarioSesion.username) tiene rol $($usuarioSesion.rol). No se escribio nada." -ForegroundColor Red
+    Write-Host "  El flujo completo exige un usuario ADMINISTRADOR; $($usuarioSesion.username) tiene rol $($usuarioSesion.rol). No se escribieron datos del negocio." -ForegroundColor Red
     Cerrar-Sesion
     $cliente.Dispose()
     exit 1
@@ -190,7 +194,7 @@ if (-not $esAdministrador) {
 
 if (-not $Confirmar) {
     $respuestaUsuario = Read-Host "  Escribe SI para continuar"
-    if ($respuestaUsuario -ne "SI") { Write-Host "Cancelado. No se escribio nada."; Cerrar-Sesion; $cliente.Dispose(); exit 0 }
+    if ($respuestaUsuario -ne "SI") { Write-Host "Cancelado. No se escribieron datos del negocio."; Cerrar-Sesion; $cliente.Dispose(); exit 0 }
 }
 
 try {

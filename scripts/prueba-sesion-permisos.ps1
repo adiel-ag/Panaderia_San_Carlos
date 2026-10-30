@@ -3,11 +3,17 @@
     Comprueba sesiones, cookies, roles y alcance de sucursal de la API desplegada.
 
 .DESCRIPTION
-    Prueba de extremo a extremo de solo lectura. Las solicitudes a endpoints de
-    escritura usan IdInexistente y deben ser rechazadas antes de escribir.
-    La opcion -ProbarClaveIncorrecta es la unica excepcion: registra un intento
-    fallido del usuario sucursal entre dos accesos correctos, de modo que el
-    contador de intentos fallidos pasa de 0 a 1 y vuelve a 0 (el bloqueo es a los 5).
+    Prueba de extremo a extremo que no crea ni modifica datos del negocio
+    (pedidos, producciones, inventario, despachos ni usuarios): solo consulta, y
+    las solicitudes a endpoints de escritura usan IdInexistente, de modo que se
+    rechazan antes de escribir.
+
+    ATENCION: no es de solo lectura en Oracle. Cada inicio de sesion correcto
+    actualiza USUARIO_CREDENCIAL del usuario (ultimo_acceso, intentos_fallidos
+    a 0 y bloqueado_hasta a NULL). Con -ProbarClaveIncorrecta ademas registra un
+    intento fallido del usuario sucursal entre dos accesos correctos, de modo
+    que el contador pasa de 0 a 1 y vuelve a 0 (el bloqueo es a los 5). El login
+    de un usuario inexistente no escribe nada.
 
 .EXAMPLE
     .\scripts\prueba-sesion-permisos.ps1
