@@ -17,6 +17,7 @@ restricciones y el código de los paquetes coinciden. `USUARIO_CREDENCIAL` y
 | `03_paquetes/` | `PKG_RECETA`, `PKG_INVENTARIO`, `PKG_PEDIDO`, `PKG_PRODUCCION`, `PKG_DESPACHO`, `PKG_SEGURIDAD` y `PKG_USUARIO`, cada uno con su especificación y su cuerpo. |
 | `instalar.sql` | Ejecuta todo lo anterior en orden y verifica que todo quedó válido. |
 | `migraciones/` | Cambios para aplicar a una base ya instalada, con su script para revertirlos. |
+| `datos_prueba/catalogo_ciclo_completo.sql` | Insumos, productos finales y sus recetas de ejemplo para probar el ciclo pedido → producción → despacho → inventario. Se puede ejecutar varias veces y no modifica datos existentes. |
 
 ## Cómo instalar
 
