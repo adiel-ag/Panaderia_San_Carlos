@@ -18,12 +18,15 @@ const PedidoDetalleView = () => import('../views/PedidoDetalleView.vue')
 const NuevoPedidoView = () => import('../views/NuevoPedidoView.vue')
 const ProduccionesView = () => import('../views/ProduccionesView.vue')
 const ProduccionDetalleView = () => import('../views/ProduccionDetalleView.vue')
+const RecetasView = () => import('../views/RecetasView.vue')
+const RecetaView = () => import('../views/RecetaView.vue')
+const NuevaRecetaView = () => import('../views/NuevaRecetaView.vue')
 const DespachoView = () => import('../views/DespachoView.vue')
 const InventarioView = () => import('../views/InventarioView.vue')
 const UsuariosView = () => import('../views/UsuariosView.vue')
 
 // Los módulos sin pantalla propia muestran la página pendiente.
-const vistas: Partial<Record<OpcionMenu['nombre'], Component | (() => Promise<unknown>)>> = { pedidos: PedidosView, produccion: ProduccionesView, inventario: InventarioView, despacho: DespachoView, usuarios: UsuariosView }
+const vistas: Partial<Record<OpcionMenu['nombre'], Component | (() => Promise<unknown>)>> = { pedidos: PedidosView, produccion: ProduccionesView, recetas: RecetasView, inventario: InventarioView, despacho: DespachoView, usuarios: UsuariosView }
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -42,6 +45,11 @@ const router = createRouter({
           meta: { titulo: 'Pedido', roles: menu.find((opcion) => opcion.nombre === 'pedidos')!.roles } },
         { path: 'produccion/:id(\\d+)', name: 'produccion-detalle', component: ProduccionDetalleView,
           meta: { titulo: 'Producción', roles: menu.find((opcion) => opcion.nombre === 'produccion')!.roles } },
+        { path: 'recetas/:idProducto(\\d+)', name: 'receta', component: RecetaView,
+          meta: { titulo: 'Receta', roles: menu.find((opcion) => opcion.nombre === 'recetas')!.roles } },
+        // Guardar versiones queda para quienes preparan las recetas; Gerencia solo consulta.
+        { path: 'recetas/:idProducto(\\d+)/nueva', name: 'receta-nueva', component: NuevaRecetaView,
+          meta: { titulo: 'Nueva versión de receta', roles: ['ADMINISTRADOR', 'PRODUCCION'] } },
         { path: 'mi-clave', name: 'mi-clave', component: CambiarClaveView, meta: { titulo: 'Cambiar contraseña', roles: ROLES } },
         { path: 'sin-permiso', name: 'sin-permiso', component: SinPermisoView, meta: { titulo: 'Sin permiso', roles: ROLES } },
       ],

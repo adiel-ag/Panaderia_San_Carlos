@@ -4,6 +4,9 @@ import { menu } from './menu'
 import DespachoView from '../views/DespachoView.vue'
 import InventarioView from '../views/InventarioView.vue'
 import UsuariosView from '../views/UsuariosView.vue'
+import RecetasView from '../views/RecetasView.vue'
+import RecetaView from '../views/RecetaView.vue'
+import NuevaRecetaView from '../views/NuevaRecetaView.vue'
 
 // Las pantallas de módulo se cargan al abrirlas: se resuelve la importación diferida.
 async function cargarVista(componente: unknown): Promise<unknown> {
@@ -68,6 +71,24 @@ describe('rutas', () => {
     expect(await cargarVista(ruta?.components?.default)).toBe(UsuariosView)
     expect(ruta?.meta.roles).toEqual(['ADMINISTRADOR'])
     expect(ruta?.meta.titulo).toBe('Usuarios')
+  })
+
+  it('muestra Recetas, su detalle y la nueva versión con sus permisos', async () => {
+    const rutas = router.getRoutes()
+    const lista = rutas.find((item) => item.name === 'recetas')
+    expect(lista?.path).toBe('/recetas')
+    expect(await cargarVista(lista?.components?.default)).toBe(RecetasView)
+    expect(lista?.meta.roles).toEqual(['ADMINISTRADOR', 'GERENTE', 'PRODUCCION'])
+    const detalle = rutas.find((item) => item.name === 'receta')
+    expect(detalle?.path).toBe('/recetas/:idProducto(\\d+)')
+    expect(await cargarVista(detalle?.components?.default)).toBe(RecetaView)
+    expect(detalle?.meta.roles).toEqual(['ADMINISTRADOR', 'GERENTE', 'PRODUCCION'])
+    const nueva = rutas.find((item) => item.name === 'receta-nueva')
+    expect(nueva?.path).toBe('/recetas/:idProducto(\\d+)/nueva')
+    expect(await cargarVista(nueva?.components?.default)).toBe(NuevaRecetaView)
+    expect(nueva?.meta.roles).toEqual(['ADMINISTRADOR', 'PRODUCCION'])
+    expect(router.resolve('/recetas/9').name).toBe('receta')
+    expect(router.resolve('/recetas/9/nueva').name).toBe('receta-nueva')
   })
 
   it('registra nuevo pedido solo para administrador y sucursal', () => {

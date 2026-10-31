@@ -59,6 +59,28 @@ class RecetaServiceTest {
     }
 
     @Test
+    void otraVersionGuardadaDespuesDeAbrirElFormularioEsConflicto() {
+        dao.siguienteVersion = 5;
+
+        RecetaConflictoException error = assertThrows(RecetaConflictoException.class,
+                () -> servicio().crear(new NuevaRecetaDTO(33L, new BigDecimal("12"),
+                        List.of(ingrediente(2, "1")), 3)));
+
+        assertTrue(error.getMessage().contains("ahora es la versión 4"), error.getMessage());
+        assertEquals(List.of("abrir", "autoCommit:false", "bloquear:33", "insumos:[2]",
+                "version:33", "rollback", "close"), eventos);
+    }
+
+    @Test
+    void sinVersionBaseYaHabiendoVersionesEsConflicto() {
+        dao.siguienteVersion = 2;
+
+        assertThrows(RecetaConflictoException.class, () -> servicio().crear(
+                new NuevaRecetaDTO(33L, new BigDecimal("12"), List.of(ingrediente(2, "1")), null)));
+        assertFalse(eventos.contains("desactivar:33"), eventos.toString());
+    }
+
+    @Test
     void fallaUnIngredienteYRevierteTodo() {
         dao.errorIngredientes = new SQLException("ORA-02291 detalle secreto", "23000", 2291);
 
@@ -234,8 +256,11 @@ class RecetaServiceTest {
                 });
     }
 
-    private static NuevaRecetaDTO solicitud(NuevoIngredienteDTO... ingredientes) {
-        return new NuevaRecetaDTO(33L, new BigDecimal("12"), List.of(ingredientes));
+    /** Basada en la ultima version que tiene el DAO falso, como lo haria la pantalla. */
+    private NuevaRecetaDTO solicitud(NuevoIngredienteDTO... ingredientes) {
+        int ultima = dao.siguienteVersion - 1;
+        return new NuevaRecetaDTO(33L, new BigDecimal("12"), List.of(ingredientes),
+                ultima == 0 ? null : ultima);
     }
 
     private static NuevoIngredienteDTO ingrediente(long id, String cantidad) {

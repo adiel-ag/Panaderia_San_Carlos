@@ -161,7 +161,7 @@ class RecetaResourceTest {
 
         ContainerResponse respuesta = llamar(servicio, "POST", "recetas",
                 "{\"idProducto\":33,\"rendimiento\":12.5,"
-                + "\"ingredientes\":[{\"idInsumo\":2,\"cantidad\":1.250}]}");
+                + "\"ingredientes\":[{\"idInsumo\":2,\"cantidad\":1.250}],\"versionBase\":2}");
 
         assertEquals(201, respuesta.getStatus());
         assertTrue(respuesta.getHeaderString("Location").endsWith("/recetas/70"),
@@ -171,6 +171,7 @@ class RecetaResourceTest {
         assertEquals(33L, recibida.idProducto());
         assertEquals(0, new BigDecimal("12.5").compareTo(recibida.rendimiento()));
         assertEquals(2L, recibida.ingredientes().get(0).idInsumo());
+        assertEquals(2, recibida.versionBase());
 
         try (Response directa = new RecetaResource(servicio).crearReceta(
                 new NuevaRecetaDTO(33L, BigDecimal.ONE, List.of()))) {

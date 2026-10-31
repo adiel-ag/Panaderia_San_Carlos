@@ -41,6 +41,16 @@ describe('AppLayout', () => {
     ruta.name = 'pedido'
   })
 
+  it.each(['receta', 'receta-nueva'])('resalta Recetas en %s', (nombre) => {
+    ruta.name = nombre
+    const wrapper = mount(AppLayout, {
+      global: { plugins: [PrimeVue], stubs: { RouterLink: true, RouterView: true, Drawer: true } },
+    })
+    expect(wrapper.find('[data-modulo="recetas"]').classes()).toContain('router-link-active')
+    expect(wrapper.find('[data-modulo="produccion"]').classes()).not.toContain('router-link-active')
+    ruta.name = 'pedido'
+  })
+
   it('resalta Despacho en el detalle abierto desde Despacho', () => {
     sesion.rol = 'ADMINISTRADOR'
     Object.assign(ruta, { query: { volver: '/despacho?vista=despachados' } })

@@ -125,6 +125,13 @@ public class RecetaService {
             }
             validarInsumos(connection, solicitud.ingredientes());
             int version = recetaDAO.siguienteVersion(connection, idProducto);
+            // Con el producto bloqueado: si alguien guardo otra version despues de
+            // que se abrio el formulario, se rechaza en lugar de reemplazarla.
+            int base = solicitud.versionBase() == null ? 0 : solicitud.versionBase();
+            if (version != base + 1) {
+                throw new RecetaConflictoException("La receta cambió mientras la editaba (ahora es la versión "
+                        + (version - 1) + "). Revise la versión actual y vuelva a intentar.", null);
+            }
             recetaDAO.desactivarActivas(connection, idProducto);
             long idReceta = recetaDAO.insertarReceta(connection, idProducto, version,
                     solicitud.rendimiento());
