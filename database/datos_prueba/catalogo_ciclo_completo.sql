@@ -8,7 +8,9 @@
 -- Se puede ejecutar más de una vez: solo inserta lo que todavía no existe
 -- (los nombres de producto son únicos). No modifica ni borra datos: si un
 -- producto ya tiene una receta activa, se deja tal como está.
--- Si algo falla, no se guarda nada (todo se confirma al final).
+-- Al final verifica que cada producto final quede listo para producirse
+-- (con las mismas condiciones que usa Oracle al generar el plan). Si algo
+-- falla, muestra el motivo y no se guarda nada (todo se confirma al final).
 --
 --   cd database
 --   set NLS_LANG=SPANISH_SPAIN.AL32UTF8
@@ -27,6 +29,7 @@ DECLARE
     -- Los ingredientes solo se cargan en una receta recién creada por este
     -- script: nunca se modifica una receta que ya existía.
     v_receta_nueva BOOLEAN := FALSE;
+    v_validos      NUMBER;
 
     PROCEDURE producto (p_nombre VARCHAR2, p_tipo VARCHAR2, p_unidad VARCHAR2,
                         p_minimo NUMBER) IS
@@ -39,6 +42,19 @@ DECLARE
            AND NOT EXISTS (SELECT 1 FROM PRODUCTO WHERE nombre = p_nombre);
         DBMS_OUTPUT.PUT_LINE(RPAD(p_nombre, 24)
             || CASE SQL%ROWCOUNT WHEN 1 THEN 'creado' ELSE 'ya existía' END);
+        -- Uno que ya existía debe tener el mismo tipo y unidad y estar activo,
+        -- o las cantidades de las recetas no tendrían sentido.
+        SELECT COUNT(*) INTO v_validos
+          FROM PRODUCTO p
+          JOIN TIPO_PRODUCTO tp ON tp.id_tipo_producto = p.id_tipo_producto
+          JOIN UNIDAD_MEDIDA um ON um.id_unidad = p.id_unidad
+         WHERE p.nombre = p_nombre AND tp.nombre = p_tipo
+           AND um.abreviatura = p_unidad AND p.estado = 'ACTIVO';
+        IF v_validos = 0 THEN
+            RAISE_APPLICATION_ERROR(-20998, 'El producto "' || p_nombre
+                || '" ya existe pero no es ' || p_tipo || ' activo en ' || p_unidad
+                || '. Corríjalo o cambie el nombre en este script.');
+        END IF;
     END;
 
     -- Crea la receta versión 1 solo si el producto no tiene una receta activa.
@@ -71,6 +87,32 @@ DECLARE
                             WHERE d.id_receta = r.id_receta AND d.id_insumo = i.id_producto);
         IF SQL%ROWCOUNT = 0 THEN
             RAISE_APPLICATION_ERROR(-20999, 'No se pudo agregar ' || p_insumo || ' a ' || p_producto);
+        END IF;
+    END;
+    -- Misma condición que PKG_RECETA.FN_RECETA_ACTIVA usa al generar el plan:
+    -- exactamente una receta vigente hoy, y con ingredientes.
+    PROCEDURE verificar_receta (p_producto VARCHAR2) IS
+        v_recetas NUMBER;
+        v_ingredientes NUMBER;
+        v_id_receta    NUMBER;
+    BEGIN
+        SELECT COUNT(*), MAX(r.id_receta)
+          INTO v_recetas, v_id_receta
+          FROM RECETA r
+          JOIN PRODUCTO p ON p.id_producto = r.id_producto
+         WHERE p.nombre = p_producto
+           AND r.estado = 'ACTIVA'
+           AND r.fecha_inicio <= SYSDATE
+           AND (r.fecha_fin IS NULL OR r.fecha_fin >= TRUNC(SYSDATE));
+        SELECT COUNT(*) INTO v_ingredientes
+          FROM RECETA_DETALLE
+         WHERE id_receta = v_id_receta;
+        IF v_recetas <> 1 THEN
+            RAISE_APPLICATION_ERROR(-20997, '"' || p_producto || '" tiene ' || v_recetas
+                || ' recetas vigentes hoy; para producirlo necesita exactamente una.');
+        ELSIF v_ingredientes = 0 THEN
+            RAISE_APPLICATION_ERROR(-20997, 'La receta vigente de "' || p_producto
+                || '" no tiene ingredientes.');
         END IF;
     END;
 BEGIN
@@ -124,6 +166,11 @@ BEGIN
     ingrediente('Champurrada', 'Manteca vegetal',     0.6);
     ingrediente('Champurrada', 'Huevo',               6);
     ingrediente('Champurrada', 'Esencia de vainilla', 0.01);
+
+    verificar_receta('Pan francés');
+    verificar_receta('Pan de manteca');
+    verificar_receta('Concha');
+    verificar_receta('Champurrada');
 
     COMMIT;
     DBMS_OUTPUT.PUT_LINE('Listo. Ahora cargue el inventario inicial de los insumos desde la pantalla Inventario.');
