@@ -104,12 +104,16 @@ async function cargar(): Promise<void> {
     const encontrado = lista.find((item) => item.idProducto === idProducto) ?? null
     if (!encontrado) { error.value = 'no-encontrado'; return }
     productos.value = catalogo
+    // Sin versión vigente el formulario parte vacío: la base es la última guardada.
     versionBase.value = versiones.length ? ultimaVersion(versiones) : null
     // Se parte de la versión vigente: solo se cambia lo necesario.
     if (estadoReceta(encontrado) === 'vigente') {
       const detalle = await obtenerReceta(encontrado.idReceta!)
       Object.assign(formulario, formularioDesdeReceta(detalle))
       siguienteClave = formulario.lineas.length + 1
+      // La base es la versión con la que se llenó el formulario: si alguien guardó
+      // otra entre las consultas, el servidor rechaza en vez de aceptar datos viejos.
+      versionBase.value = detalle.version
     }
     inicial = copiarFormulario(formulario)
     resumen.value = encontrado

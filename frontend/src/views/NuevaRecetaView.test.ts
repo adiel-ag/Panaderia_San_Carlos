@@ -125,6 +125,14 @@ describe('NuevaRecetaView', () => {
     expect(api.confirmar).not.toHaveBeenCalled()
   })
 
+  it('si alguien guarda entre las consultas, la base es la versión con la que se llenó el formulario', async () => {
+    // El resumen y el detalle aún muestran la v2, pero el historial ya trae una v3.
+    api.listarVersiones.mockResolvedValue([{ ...versiones[0]!, idReceta: 99, version: 3 }, ...versiones])
+    const wrapper = await montar()
+    await guardar(wrapper)
+    expect(api.crearReceta).toHaveBeenCalledWith(expect.objectContaining({ versionBase: 2 }))
+  })
+
   it('crea la primera receta sin versión de partida', async () => {
     api.listarRecetas.mockResolvedValue([resumen(0)])
     api.listarVersiones.mockResolvedValue([])
