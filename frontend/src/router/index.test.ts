@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import router from './index'
 import { menu } from './menu'
+import DespachoView from '../views/DespachoView.vue'
 
 describe('rutas', () => {
   it('incluye la pagina de inicio', () => {
@@ -36,6 +37,14 @@ describe('rutas', () => {
     expect(ruta?.meta.roles).toEqual(['ADMINISTRADOR', 'GERENTE', 'PRODUCCION'])
     expect(ruta?.meta.titulo).toBe('Producción')
     expect(router.resolve('/produccion/12').name).toBe('produccion-detalle')
+  })
+
+  it('muestra Despacho con su pantalla para administrador y despacho', () => {
+    const ruta = router.getRoutes().find((item) => item.name === 'despacho')
+    expect(ruta?.path).toBe('/despacho')
+    expect(ruta?.components?.default).toBe(DespachoView)
+    expect(ruta?.meta.roles).toEqual(['ADMINISTRADOR', 'DESPACHO'])
+    expect(ruta?.meta.titulo).toBe('Despacho')
   })
 
   it('registra nuevo pedido solo para administrador y sucursal', () => {

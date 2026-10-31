@@ -40,6 +40,16 @@ describe('PedidoDetalleView', () => {
     expect(wrapper.text()).toContain('Centro')
     expect(obtenerDespacho).not.toHaveBeenCalled()
   })
+  it('vuelve a Despacho cuando se abrió desde allí', async () => {
+    route.query = { volver: '/despacho?vista=despachados' }
+    const wrapper = mount(PedidoDetalleView, { global: { plugins: [PrimeVue], stubs: { RouterLink: { props: ['to'], template: '<a :data-to="to"><slot /></a>' } } } })
+    montajes.push(wrapper)
+    await flushPromises()
+    const volver = wrapper.find('.volver-pedidos')
+    expect(volver.text()).toBe('← Despacho')
+    expect(volver.attributes('data-to')).toBe('/despacho?vista=despachados')
+    route.query = {}
+  })
   it('consulta el despacho solo para un pedido despachado', async () => {
     obtenerPedido.mockResolvedValue({ ...pedido, estado: 'DESPACHADO' })
     const wrapper = montar()

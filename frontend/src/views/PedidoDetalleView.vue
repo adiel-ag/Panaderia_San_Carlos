@@ -15,8 +15,9 @@ const id = computed(() => Number(route.params.id))
 const puedeVerDespacho = computed(() => sesion.rol !== 'PRODUCCION')
 const volver = computed(() => {
   const valor = route.query.volver
-  return typeof valor === 'string' && /^\/pedidos(?:\?|$)/.test(valor) ? valor : '/pedidos'
+  return typeof valor === 'string' && /^\/(?:pedidos|despacho)(?:\?|$)/.test(valor) ? valor : '/pedidos'
 })
+const etiquetaVolver = computed(() => volver.value.startsWith('/despacho') ? 'Despacho' : 'Pedidos')
 const pedido = ref<Pedido | null>(null)
 const despacho = ref<Despacho | null>(null)
 const sucursales = ref<Sucursal[]>([])
@@ -78,7 +79,7 @@ watch(id, () => { void cargar() }, { immediate: true })
 
 <template>
   <section class="pagina pagina-pedido-detalle">
-    <RouterLink :to="volver" class="volver-pedidos">← Pedidos</RouterLink>
+    <RouterLink :to="volver" class="volver-pedidos">← {{ etiquetaVolver }}</RouterLink>
     <div class="titulo-pedido"><h1>Pedido #{{ id }}</h1><EstadoPedido v-if="pedido" :estado="pedido.estado" /></div>
     <div v-if="cargando" class="detalle-cargando" aria-label="Cargando pedido">
       <div class="esqueleto-fila" /><div class="esqueleto-fila" /><div class="esqueleto-fila" />

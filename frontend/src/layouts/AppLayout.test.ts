@@ -41,6 +41,18 @@ describe('AppLayout', () => {
     ruta.name = 'pedido'
   })
 
+  it('resalta Despacho en el detalle abierto desde Despacho', () => {
+    sesion.rol = 'ADMINISTRADOR'
+    Object.assign(ruta, { query: { volver: '/despacho?vista=despachados' } })
+    const wrapper = mount(AppLayout, {
+      global: { plugins: [PrimeVue], stubs: { RouterLink: true, RouterView: true, Drawer: true } },
+    })
+    expect(wrapper.find('[data-modulo="despacho"]').classes()).toContain('router-link-active')
+    expect(wrapper.find('[data-modulo="pedidos"]').classes()).not.toContain('router-link-active')
+    Object.assign(ruta, { query: {} })
+    sesion.rol = 'GERENTE'
+  })
+
   it('navega al login y avisa si el servidor rechaza el cierre', async () => {
     sesion.cerrarSesion.mockRejectedValue(new Error('red'))
     const wrapper = mount(AppLayout, {

@@ -1,3 +1,4 @@
+import type { Component } from 'vue'
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { ROLES } from '../api/tipos'
 import { useSesionStore } from '../stores/sesion'
@@ -11,10 +12,14 @@ import PedidoDetalleView from '../views/PedidoDetalleView.vue'
 import NuevoPedidoView from '../views/NuevoPedidoView.vue'
 import ProduccionesView from '../views/ProduccionesView.vue'
 import ProduccionDetalleView from '../views/ProduccionDetalleView.vue'
+import DespachoView from '../views/DespachoView.vue'
 import SinPermisoView from '../views/SinPermisoView.vue'
 import { decidirNavegacion } from './guardia'
-import { menu } from './menu'
+import { menu, type OpcionMenu } from './menu'
 import './meta'
+
+// Los módulos sin pantalla propia muestran la página pendiente.
+const vistas: Partial<Record<OpcionMenu['nombre'], Component>> = { pedidos: PedidosView, produccion: ProduccionesView, despacho: DespachoView }
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -24,7 +29,7 @@ const router = createRouter({
       path: '/', component: AppLayout, children: [
         { path: '', name: 'inicio', component: InicioView, meta: { titulo: 'Inicio', roles: menu[0]!.roles } },
         ...menu.slice(1).map((opcion) => ({
-          path: opcion.nombre, name: opcion.nombre, component: opcion.nombre === 'pedidos' ? PedidosView : opcion.nombre === 'produccion' ? ProduccionesView : PendienteView,
+          path: opcion.nombre, name: opcion.nombre, component: vistas[opcion.nombre] ?? PendienteView,
           meta: { titulo: opcion.etiqueta, roles: opcion.roles },
         })),
         { path: 'pedidos/nuevo', name: 'pedido-nuevo', component: NuevoPedidoView,
