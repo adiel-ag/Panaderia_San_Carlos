@@ -56,8 +56,13 @@ const listaAlertas = computed<Alerta[]>(() => {
   if (datos.insumosBajoMinimo > 0) lista.push({ clave: 'bajo-minimo', texto: plural(datos.insumosBajoMinimo, 'insumo bajo el mínimo', 'insumos bajo el mínimo'), destino: { name: 'inventario', query: { tipo: 'INSUMO', bajo: '1' } } })
   return lista
 })
-async function cargarAlertas(): Promise<void> {
-  try { alertas.value = await obtenerAlertas() } catch { alertas.value = null }
+// Cada carga recibe un turno; solo la más reciente puede escribir en pantalla.
+// Así una respuesta tardía (p. ej. de antes de medianoche) no pisa las cifras nuevas.
+let turnoActual = 0
+async function cargarAlertas(turno: number): Promise<void> {
+  let datos: Alertas | null
+  try { datos = await obtenerAlertas() } catch { datos = null }
+  if (turno === turnoActual) alertas.value = datos
 }
 const maximo = computed(() => Math.max(1, ...barras.value.map((barra) => barra.cantidad)))
 
@@ -74,16 +79,20 @@ function programarCambioDeDia(desde: Date): void {
 }
 
 async function cargar(): Promise<void> {
+  const turno = ++turnoActual
   const ahora = new Date()
   fechaHoy.value = fechaLarga(ahora)
   programarCambioDeDia(ahora)
-  void cargarAlertas()
+  void cargarAlertas(turno)
   cargando.value = true
   error.value = false
   indicadores.value = []
   etapas.value = []
   barras.value = []
   const rol = sesion.rol
+  let nuevasEtapas: Etapa[] = []
+  let nuevasBarras: Barra[] = []
+  let nuevoTitulo = ''
   try {
     const nuevos: Indicador[] = []
     if (tiene(rol, ['ADMINISTRADOR', 'GERENTE', 'SUCURSAL', 'PRODUCCION', 'DESPACHO'])) {
@@ -93,10 +102,10 @@ async function cargar(): Promise<void> {
         estado, total: (await listarPedidos({ estado, entregaDesde: fecha, entregaHasta: fecha }, 1, 1, false)).total,
       })))
       nuevos.push({ titulo: 'Pedidos con entrega hoy', valor: totales.filter((item) => item.estado !== 'CANCELADO').reduce((suma, item) => suma + item.total, 0), modulo: 'pedidos', nota: 'Incluye los ya despachados' })
-      etapas.value = totales.filter((item) => item.estado !== 'CANCELADO')
+      nuevasEtapas = totales.filter((item) => item.estado !== 'CANCELADO')
         .map((item) => ({ estado: item.estado, etiqueta: etiquetaEstado(item.estado), icono: ICONOS_ETAPA[item.estado] ?? 'pi pi-circle', total: item.total }))
-      barras.value = totales.filter((item) => item.total > 0).map((item) => ({ nombre: etiquetaEstado(item.estado), cantidad: item.total }))
-      graficoTitulo.value = 'Pedidos por estado para hoy'
+      nuevasBarras = totales.filter((item) => item.total > 0).map((item) => ({ nombre: etiquetaEstado(item.estado), cantidad: item.total }))
+      nuevoTitulo = 'Pedidos por estado para hoy'
       if (tiene(rol, ['ADMINISTRADOR', 'GERENTE', 'DESPACHO'])) {
         const listos = await listarPedidos({ estado: 'LISTO_DESPACHO' }, 1, 1, false)
         nuevos.push({ titulo: 'Listos para despacho', valor: listos.total, modulo: rol === 'GERENTE' ? 'pedidos' : 'despacho', nota: 'Pendientes de entregar' })
@@ -113,19 +122,23 @@ async function cargar(): Promise<void> {
       nuevos.push({ titulo: 'Insumos bajo mínimo', valor: bajos.total, modulo: 'inventario', nota: 'Revisar existencias' })
       if (rol === 'BODEGA') {
         const todos = await listarExistencias({ tipo: 'INSUMO' }, 1, 1, false)
-        barras.value = [{ nombre: 'Bajo mínimo', cantidad: bajos.total }, { nombre: 'Otros insumos', cantidad: Math.max(0, todos.total - bajos.total) }]
-        graficoTitulo.value = 'Estado de insumos'
+        nuevasBarras = [{ nombre: 'Bajo mínimo', cantidad: bajos.total }, { nombre: 'Otros insumos', cantidad: Math.max(0, todos.total - bajos.total) }]
+        nuevoTitulo = 'Estado de insumos'
       }
     }
+    if (turno !== turnoActual) return
     indicadores.value = nuevos
+    etapas.value = nuevasEtapas
+    barras.value = nuevasBarras
+    graficoTitulo.value = nuevoTitulo
   } catch {
-    error.value = true
+    if (turno === turnoActual) error.value = true
   } finally {
-    cargando.value = false
+    if (turno === turnoActual) cargando.value = false
   }
 }
 onMounted(() => { void cargar() })
-onUnmounted(() => { clearTimeout(temporizadorDia) })
+onUnmounted(() => { clearTimeout(temporizadorDia); turnoActual++ })
 </script>
 
 <template>

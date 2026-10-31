@@ -111,6 +111,31 @@ describe('InicioView', () => {
     }
   })
 
+  it('una carga vieja que responde tarde no pisa las cifras de la carga más reciente', async () => {
+    let soltarVieja: () => void = () => {}
+    const vieja = new Promise<void>((resolver) => { soltarVieja = resolver })
+    listarPedidos.mockImplementation(async (filtros: { estado: string }) => {
+      await vieja
+      return { items: [], total: filtros.estado === 'PENDIENTE' ? 9 : 0, pagina: 1, tamano: 1 }
+    })
+    obtenerAlertas.mockImplementationOnce(async () => { await vieja; return { pedidosAtrasados: 5, productosSinReceta: 0, insumosBajoMinimo: 0 } })
+    const wrapper = mount(InicioView, { global: { stubs: { RouterLink: enlace } } })
+    await flushPromises()
+    // Segunda carga (como la de medianoche): responde al instante con otras cifras.
+    listarPedidos.mockImplementation((filtros: { estado: string }) => Promise.resolve({ items: [], total: filtros.estado === 'PENDIENTE' ? 1 : 0, pagina: 1, tamano: 1 }))
+    const vm = wrapper.vm as unknown as { cargar?: () => Promise<void> }
+    const actualizar = wrapper.findAll('button').find((boton) => boton.text().includes('Actualizar'))
+    if (actualizar) await actualizar.trigger('click')
+    else await vm.cargar?.()
+    await flushPromises()
+    soltarVieja()
+    await flushPromises()
+    const valor = wrapper.findAll('.dashboard-indicador').find((tarjeta) => tarjeta.text().includes('Pedidos con entrega hoy'))
+    expect(valor?.get('.dashboard-indicador-valor').text()).toBe('1')
+    expect(wrapper.find('[aria-label="Alertas"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Cargando indicadores')
+  })
+
   it('presenta Hoy en el horno con el conteo de cada etapa y enlaza a Pedidos filtrado', async () => {
     const wrapper = mount(InicioView, { global: { stubs: { RouterLink: enlace } } })
     await flushPromises()
