@@ -32,6 +32,13 @@ describe('LoginView', () => {
     route.query = {}
   })
 
+  it('identifica a la UMG en el pie y conserva el acceso con usuario y contraseña', () => {
+    const wrapper = mount(LoginView, { global: { plugins: [PrimeVue] } })
+    expect(wrapper.find('footer').text()).toContain('Universidad Mariano Gálvez de Guatemala')
+    expect(wrapper.find('#usuario').exists()).toBe(true)
+    expect(wrapper.find('#contrasena').exists()).toBe(true)
+  })
+
   it('redirige al destino seguro tras iniciar sesión', async () => {
     route.query = { redirect: '/pedidos' }
     sesion.iniciarSesion.mockResolvedValue({})
@@ -68,5 +75,14 @@ describe('LoginView', () => {
     const wrapper = mount(LoginView, { global: { plugins: [PrimeVue] } })
     await completar(wrapper)
     expect(wrapper.text()).toContain('No se pudo conectar con el servidor.')
+  })
+
+  it('explica los campos vacíos junto a cada control antes de intentar ingresar', async () => {
+    const wrapper = mount(LoginView, { global: { plugins: [PrimeVue] } })
+    await wrapper.find('form').trigger('submit')
+    expect(sesion.iniciarSesion).not.toHaveBeenCalled()
+    expect(wrapper.find('#usuario-error').text()).toContain('Ingrese su usuario')
+    expect(wrapper.find('#contrasena-error').text()).toContain('Ingrese su contraseña')
+    expect(wrapper.find('#usuario').attributes('aria-invalid')).toBe('true')
   })
 })

@@ -1,31 +1,122 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import Button from 'primevue/button'
+import Message from 'primevue/message'
 import { etiquetaRol } from '../api/roles'
+import { ESTADOS, etiquetaEstado, listarPedidos } from '../api/pedidos'
+import { listarProducciones } from '../api/producciones'
+import { listarExistencias } from '../api/inventario'
+import { listarRecetas } from '../api/recetas'
+import type { Rol } from '../api/tipos'
 import { opcionesMenu } from '../router/menu'
 import { useSesionStore } from '../stores/sesion'
 import IlustracionPan from '../components/IlustracionPan.vue'
 
+type Indicador = { titulo: string; valor: number; modulo: string; nota: string }
+type Barra = { nombre: string; cantidad: number }
 const sesion = useSesionStore()
 const modulos = computed(() => opcionesMenu(sesion.rol).filter((item) => item.nombre !== 'inicio'))
+const indicadores = ref<Indicador[]>([])
+const barras = ref<Barra[]>([])
+const graficoTitulo = ref('')
+const cargando = ref(true)
+const error = ref(false)
+const maximo = computed(() => Math.max(1, ...barras.value.map((barra) => barra.cantidad)))
+
+function hoyLocal(): string {
+  const fecha = new Date()
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
+}
+function tiene(rol: Rol | null, roles: readonly Rol[]): boolean { return rol !== null && roles.includes(rol) }
+
+async function cargar(): Promise<void> {
+  cargando.value = true
+  error.value = false
+  indicadores.value = []
+  barras.value = []
+  const rol = sesion.rol
+  try {
+    const nuevos: Indicador[] = []
+    if (tiene(rol, ['ADMINISTRADOR', 'GERENTE', 'SUCURSAL', 'PRODUCCION', 'DESPACHO'])) {
+      const fecha = hoyLocal()
+      // Se usa el total del servidor, nunca la longitud de la primera página.
+      const totales = await Promise.all(ESTADOS.map(async (estado) => ({
+        estado, total: (await listarPedidos({ estado, entregaDesde: fecha, entregaHasta: fecha }, 1, 1, false)).total,
+      })))
+      nuevos.push({ titulo: 'Pedidos con entrega hoy', valor: totales.filter((item) => item.estado !== 'CANCELADO').reduce((suma, item) => suma + item.total, 0), modulo: 'pedidos', nota: 'Incluye los ya despachados' })
+      barras.value = totales.filter((item) => item.total > 0).map((item) => ({ nombre: etiquetaEstado(item.estado), cantidad: item.total }))
+      graficoTitulo.value = 'Pedidos por estado para hoy'
+      if (tiene(rol, ['ADMINISTRADOR', 'GERENTE', 'DESPACHO'])) {
+        const listos = await listarPedidos({ estado: 'LISTO_DESPACHO' }, 1, 1, false)
+        nuevos.push({ titulo: 'Listos para despacho', valor: listos.total, modulo: rol === 'GERENTE' ? 'pedidos' : 'despacho', nota: 'Pendientes de entregar' })
+      }
+    }
+    if (tiene(rol, ['ADMINISTRADOR', 'GERENTE', 'PRODUCCION'])) {
+      const producciones = await listarProducciones('EN_PROCESO', 1, 1, false)
+      nuevos.push({ titulo: 'Producciones en proceso', valor: producciones.total, modulo: 'produccion', nota: 'En curso' })
+      const recetas = await listarRecetas()
+      nuevos.push({ titulo: 'Productos sin receta', valor: recetas.filter((item) => item.recetasVigentes !== 1).length, modulo: 'recetas', nota: 'Necesitan receta vigente' })
+    }
+    if (tiene(rol, ['ADMINISTRADOR', 'GERENTE', 'PRODUCCION', 'BODEGA', 'DESPACHO'])) {
+      const bajos = await listarExistencias({ tipo: 'INSUMO', bajoMinimo: true }, 1, 1, false)
+      nuevos.push({ titulo: 'Insumos bajo mínimo', valor: bajos.total, modulo: 'inventario', nota: 'Revisar existencias' })
+      if (rol === 'BODEGA') {
+        const todos = await listarExistencias({ tipo: 'INSUMO' }, 1, 1, false)
+        barras.value = [{ nombre: 'Bajo mínimo', cantidad: bajos.total }, { nombre: 'Otros insumos', cantidad: Math.max(0, todos.total - bajos.total) }]
+        graficoTitulo.value = 'Estado de insumos'
+      }
+    }
+    indicadores.value = nuevos
+  } catch {
+    error.value = true
+  } finally {
+    cargando.value = false
+  }
+}
+onMounted(() => { void cargar() })
 </script>
 
 <template>
   <section class="pagina pagina-inicio">
     <div class="saludo">
       <div>
+        <p class="saludo-contexto">Panadería San Carlos · {{ etiquetaRol(sesion.rol) }}</p>
         <h1>Hola, {{ sesion.usuario?.nombre }}</h1>
-        <p class="subtitulo">{{ etiquetaRol(sesion.rol) }} · Panadería San Carlos</p>
+        <p class="subtitulo">Lo que necesita atención en tu jornada.</p>
       </div>
       <IlustracionPan />
     </div>
-    <h2>Módulos disponibles</h2>
-    <nav class="lista-modulos" aria-label="Módulos disponibles">
-      <RouterLink v-for="opcion in modulos" :key="opcion.nombre" :to="{ name: opcion.nombre }" class="fila-modulo">
-        <i :class="opcion.icono" aria-hidden="true" />
-        <span class="fila-modulo-texto"><strong>{{ opcion.etiqueta }}</strong><span>{{ opcion.descripcion }}</span></span>
-        <i class="pi pi-arrow-right" aria-hidden="true" />
-      </RouterLink>
-    </nav>
+    <section class="dashboard-seccion" aria-labelledby="titulo-operacion">
+      <div class="cabecera-seccion"><div><h2 id="titulo-operacion">Operación de hoy</h2><p class="subtitulo">Cifras de los módulos a los que tienes acceso.</p></div><Button v-if="!cargando" label="Actualizar" icon="pi pi-refresh" text @click="cargar" /></div>
+      <p v-if="cargando" role="status">Cargando indicadores…</p>
+      <div v-else-if="error" class="dashboard-aviso"><Message severity="warn">No se pudieron cargar los indicadores.</Message><Button label="Reintentar" @click="cargar" /></div>
+      <template v-else>
+        <div class="dashboard-indicadores">
+          <RouterLink v-for="dato in indicadores" :key="dato.titulo" :to="{ name: dato.modulo }" class="dashboard-indicador">
+            <span class="dashboard-indicador-titulo">{{ dato.titulo }}</span><strong class="dashboard-indicador-valor">{{ dato.valor }}</strong>
+            <span class="dashboard-indicador-nota">{{ dato.nota }} <i class="pi pi-arrow-right" aria-hidden="true" /></span>
+          </RouterLink>
+        </div>
+        <section v-if="graficoTitulo" class="dashboard-grafico" :aria-label="graficoTitulo">
+          <h3>{{ graficoTitulo }}</h3>
+          <p class="subtitulo">{{ graficoTitulo.includes('hoy') ? 'Fecha de entrega: hoy' : 'Situación actual' }}</p>
+          <p v-if="!barras.length">No hay registros para mostrar.</p>
+          <ul v-else class="dashboard-barras">
+            <li v-for="barra in barras" :key="barra.nombre">
+              <span>{{ barra.nombre }}</span><div class="dashboard-pista" aria-hidden="true"><div class="dashboard-barra" :style="{ width: `${barra.cantidad / maximo * 100}%` }" /></div><strong>{{ barra.cantidad }}</strong>
+            </li>
+          </ul>
+        </section>
+      </template>
+    </section>
+    <section class="dashboard-seccion" aria-labelledby="titulo-modulos">
+      <h2 id="titulo-modulos">Módulos disponibles</h2>
+      <nav class="lista-modulos" aria-label="Módulos disponibles">
+        <RouterLink v-for="opcion in modulos" :key="opcion.nombre" :to="{ name: opcion.nombre }" class="fila-modulo">
+          <i :class="opcion.icono" aria-hidden="true" /><span class="fila-modulo-texto"><strong>{{ opcion.etiqueta }}</strong><span>{{ opcion.descripcion }}</span></span><i class="pi pi-arrow-right" aria-hidden="true" />
+        </RouterLink>
+      </nav>
+    </section>
   </section>
 </template>

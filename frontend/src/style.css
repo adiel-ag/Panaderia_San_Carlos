@@ -39,6 +39,11 @@ h1, h2 { line-height: 1.2; }
 .campo label { font-weight: 700; }
 .campo .p-password { width: 100%; }
 .error-campo { color: var(--psc-error); }
+.enlace-saltar { position: absolute; z-index: 1000; top: .5rem; left: .5rem; padding: .65rem 1rem; border-radius: 8px; background: var(--psc-superficie); color: var(--psc-texto); transform: translateY(-160%); }
+.enlace-saltar:focus { transform: translateY(0); }
+.pie-institucional { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .25rem .55rem; padding: .8rem 1rem; color: var(--psc-suave); font-size: .82rem; line-height: 1.4; text-align: center; }
+.acceso .pie-institucional { align-self: end; }
+.app-layout > .pie-institucional { border-top: 1px solid var(--psc-borde); background: var(--psc-superficie); }
 .app-layout { min-height: 100vh; display: flex; flex-direction: column; background: var(--psc-fondo); }
 .barra-superior { min-height: 4.5rem; display: flex; align-items: center; gap: 1rem; padding: .75rem 1.5rem; background: var(--psc-barra); color: var(--psc-sobre-barra); }
 .marca { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; white-space: nowrap; }
@@ -78,6 +83,27 @@ h1, h2 { line-height: 1.2; }
 .fila-modulo-texto span { color: var(--psc-suave); font-size: .95rem; }
 .fila-modulo:hover .fila-modulo-texto span { color: inherit; }
 .fila-modulo .pi-arrow-right { margin-left: auto; }
+.saludo-contexto { margin: 0 0 .65rem; color: var(--psc-acento); font-size: .76rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.dashboard-seccion { margin-top: 2rem; }
+.dashboard-seccion > h2, .dashboard-seccion .cabecera-seccion h2 { margin: 0 0 .35rem; }
+.dashboard-seccion .cabecera-seccion { align-items: end; margin-bottom: 1rem; }
+.dashboard-seccion .subtitulo { margin: 0; }
+.dashboard-indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: .8rem; }
+.dashboard-indicador { display: grid; align-content: space-between; gap: .8rem; min-height: 10.5rem; padding: 1.15rem; border: 1px solid var(--psc-borde); border-radius: 14px; background: var(--psc-superficie); text-decoration: none; transition: border-color .18s ease, transform .18s ease; }
+.dashboard-indicador:hover { border-color: var(--psc-acento); transform: translateY(-2px); }
+.dashboard-indicador-titulo { font-weight: 750; line-height: 1.25; }
+.dashboard-indicador-valor { font-family: var(--psc-fuente-titulos); font-size: clamp(2.3rem, 4vw, 3.2rem); font-variant-numeric: tabular-nums; line-height: 1; }
+.dashboard-indicador-nota { display: flex; align-items: center; justify-content: space-between; gap: .5rem; color: var(--psc-suave); font-size: .86rem; }
+.dashboard-grafico { margin-top: .9rem; padding: 1.25rem; border: 1px solid var(--psc-borde); border-radius: 14px; background: var(--psc-superficie); }
+.dashboard-grafico h3 { margin: 0 0 .2rem; font-size: 1.05rem; }
+.dashboard-barras { display: grid; gap: .85rem; margin: 1.2rem 0 0; padding: 0; list-style: none; }
+.dashboard-barras li { display: grid; grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr) 3rem; align-items: center; gap: .7rem; }
+.dashboard-barras li strong { text-align: right; font-variant-numeric: tabular-nums; }
+.dashboard-pista { height: .75rem; overflow: hidden; border-radius: 999px; background: var(--psc-activo-fondo); }
+.dashboard-barra { height: 100%; border-radius: inherit; background: var(--psc-acento); }
+.dashboard-aviso { display: grid; justify-items: start; gap: .5rem; }
+@media (max-width: 600px) { .dashboard-barras li { grid-template-columns: minmax(0, 1fr) 2.5rem; gap: .3rem .65rem; } .dashboard-pista { grid-column: 1 / -1; grid-row: 2; } }
+@media (prefers-reduced-motion: reduce) { .dashboard-indicador { transition: none; } .dashboard-indicador:hover { transform: none; } }
 .ayuda-campo { color: var(--psc-suave); }
 .estado-vacio { min-height: 60vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .estado-vacio .ilustracion-pan { width: min(220px, 80%); margin-bottom: 1rem; }

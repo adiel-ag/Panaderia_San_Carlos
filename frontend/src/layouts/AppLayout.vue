@@ -9,6 +9,7 @@ import { opcionesMenu } from '../router/menu'
 import { useSesionStore } from '../stores/sesion'
 import BotonTema from '../components/BotonTema.vue'
 import LogoPanaderia from '../components/LogoPanaderia.vue'
+import PieInstitucional from '../components/PieInstitucional.vue'
 
 const sesion = useSesionStore()
 const router = useRouter()
@@ -48,6 +49,7 @@ async function cerrarSesion(): Promise<void> {
 
 <template>
   <div class="app-layout">
+    <a class="enlace-saltar" href="#contenido-principal">Saltar al contenido</a>
     <header class="barra-superior">
       <Button class="boton-menu" icon="pi pi-bars" aria-label="Abrir menú" text @click="menuAbierto = true" />
       <RouterLink class="marca" :to="{ name: 'inicio' }"><LogoPanaderia /></RouterLink>
@@ -66,8 +68,9 @@ async function cerrarSesion(): Promise<void> {
           </RouterLink>
         </nav>
       </aside>
-      <main class="contenido"><RouterView /></main>
+      <main id="contenido-principal" class="contenido" tabindex="-1"><RouterView /></main>
     </div>
+    <PieInstitucional />
     <Drawer v-model:visible="menuAbierto" header="Panadería San Carlos" class="cajon-menu">
       <nav aria-label="Módulos">
         <RouterLink v-for="opcion in opcionesMenu(sesion.rol)" :key="opcion.nombre" class="enlace-menu" :class="{ 'router-link-active': activoPorHija(opcion.nombre) }" :data-modulo="opcion.nombre" :to="{ name: opcion.nombre }" @click="menuAbierto = false">

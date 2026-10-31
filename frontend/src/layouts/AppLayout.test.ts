@@ -24,6 +24,19 @@ vi.mock('vue-router', async (importOriginal) => ({
 vi.mock('primevue/usetoast', () => ({ useToast: () => toast }))
 
 describe('AppLayout', () => {
+  it('muestra la identificación institucional en un pie fuera del contenido', () => {
+    const wrapper = mount(AppLayout, {
+      global: { plugins: [PrimeVue], stubs: { RouterLink: true, RouterView: true, Drawer: true } },
+    })
+    expect(wrapper.find('footer').text()).toContain('Universidad Mariano Gálvez de Guatemala')
+  })
+  it('permite saltar el menú y llegar al contenido principal', () => {
+    const wrapper = mount(AppLayout, {
+      global: { plugins: [PrimeVue], stubs: { RouterLink: true, RouterView: true, Drawer: true } },
+    })
+    expect(wrapper.find('a.enlace-saltar').attributes('href')).toBe('#contenido-principal')
+    expect(wrapper.find('main#contenido-principal').exists()).toBe(true)
+  })
   it('resalta Pedidos en la ruta de detalle', () => {
     const wrapper = mount(AppLayout, {
       global: { plugins: [PrimeVue], stubs: { RouterLink: true, RouterView: true, Drawer: true } },
