@@ -44,8 +44,11 @@ public class ProduccionDAO {
             "SELECT estado FROM PRODUCCION WHERE id_produccion = ? FOR UPDATE";
     private static final String SQL_LIBERAR_PEDIDOS =
             "DELETE FROM PRODUCCION_PEDIDO WHERE id_produccion = ?";
-    private static final String SQL_CANCELAR =
-            "UPDATE PRODUCCION SET estado = 'CANCELADA' WHERE id_produccion = ?";
+    private static final String SQL_PEDIDOS_ASOCIADOS =
+            "SELECT id_pedido FROM PRODUCCION_PEDIDO WHERE id_produccion = ? ORDER BY id_pedido";
+    // Los vinculos se borran para liberar los pedidos; la observacion conserva cuales eran.
+    private static final String SQL_CANCELAR = "UPDATE PRODUCCION SET estado = 'CANCELADA', "
+            + "observacion = SUBSTR(TRIM(observacion || ' ' || ?), 1, 500) WHERE id_produccion = ?";
     private static final String SQL_EXISTE =
             "SELECT COUNT(*) FROM PRODUCCION WHERE id_produccion = ?";
     private static final String SQL_RESUMEN_SELECT = """
@@ -166,8 +169,29 @@ public class ProduccionDAO {
             throw new ProduccionConflictoException(
                     "Solo se puede cancelar una producción planificada", null);
         }
+        List<Long> pedidos = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(SQL_PEDIDOS_ASOCIADOS)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idProduccion);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) pedidos.add(resultSet.getLong(1));
+            }
+        }
         actualizar(connection, SQL_LIBERAR_PEDIDOS, idProduccion);
-        actualizar(connection, SQL_CANCELAR, idProduccion);
+        try (PreparedStatement statement = connection.prepareStatement(SQL_CANCELAR)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setString(1, notaCancelacion(pedidos));
+            statement.setLong(2, idProduccion);
+            statement.executeUpdate();
+        }
+    }
+
+    /** Texto que queda en la observacion: que pedidos se liberaron al cancelar. */
+    static String notaCancelacion(List<Long> pedidos) {
+        if (pedidos.isEmpty()) return "[Cancelada sin pedidos]";
+        StringBuilder texto = new StringBuilder("[Cancelada; pedidos liberados:");
+        for (int i = 0; i < pedidos.size(); i++) texto.append(i == 0 ? " #" : ", #").append(pedidos.get(i));
+        return texto.append(']').toString();
     }
 
     private static void actualizar(Connection connection, String sql, long idProduccion)

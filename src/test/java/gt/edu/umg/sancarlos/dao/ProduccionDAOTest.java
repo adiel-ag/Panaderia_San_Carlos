@@ -21,13 +21,21 @@ class ProduccionDAOTest {
 
     @Test
     void cancelarBloqueaLiberaPedidosYMarcaCancelada() throws Exception {
-        new ProduccionDAO().cancelar(conexion("PLANIFICADA"), 90);
+        new ProduccionDAO().cancelar(conexion("PLANIFICADA", 22L, 23L), 90);
 
         assertEquals(List.of(
                 "SELECT estado FROM PRODUCCION WHERE id_produccion = ? FOR UPDATE",
+                "SELECT id_pedido FROM PRODUCCION_PEDIDO WHERE id_produccion = ? ORDER BY id_pedido",
                 "DELETE FROM PRODUCCION_PEDIDO WHERE id_produccion = ?",
-                "UPDATE PRODUCCION SET estado = 'CANCELADA' WHERE id_produccion = ?"), sentencias);
-        assertEquals(List.of(90L, 90L, 90L), parametros);
+                "UPDATE PRODUCCION SET estado = 'CANCELADA', observacion = SUBSTR(TRIM(observacion || ' ' || ?), 1, 500) WHERE id_produccion = ?"),
+                sentencias);
+        // La observacion conserva que pedidos se liberaron.
+        assertEquals(List.of(90L, 90L, 90L, "[Cancelada; pedidos liberados: #22, #23]", 90L), parametros);
+    }
+
+    @Test
+    void notaSinPedidos() {
+        assertEquals("[Cancelada sin pedidos]", ProduccionDAO.notaCancelacion(List.of()));
     }
 
     @Test
@@ -50,27 +58,40 @@ class ProduccionDAOTest {
     }
 
     /** estado null simula que la producción no existe. */
-    private Connection conexion(String estado) {
+    private Connection conexion(String estado, Long... pedidos) {
         return (Connection) Proxy.newProxyInstance(Connection.class.getClassLoader(),
                 new Class<?>[]{Connection.class}, (proxy, method, args) -> {
                     if (method.getName().equals("prepareStatement")) {
-                        sentencias.add((String) args[0]);
-                        return sentencia(estado);
+                        String sql = (String) args[0];
+                        sentencias.add(sql);
+                        return sentencia(sql.contains("FROM PRODUCCION_PEDIDO") && sql.startsWith("SELECT")
+                                ? new ArrayList<>(List.of(pedidos)) : null, estado);
                     }
                     return null;
                 });
     }
 
-    private PreparedStatement sentencia(String estado) {
+    /** pedidos != null: la consulta devuelve esos ID; si no, una fila con el estado. */
+    private PreparedStatement sentencia(List<Long> pedidos, String estado) {
         return (PreparedStatement) Proxy.newProxyInstance(
                 PreparedStatement.class.getClassLoader(), new Class<?>[]{PreparedStatement.class},
                 (proxy, method, args) -> switch (method.getName()) {
-                    case "setLong" -> {
+                    case "setLong", "setString" -> {
                         parametros.add(args[1]);
                         yield null;
                     }
-                    case "executeQuery" -> fila(estado);
+                    case "executeQuery" -> pedidos != null ? filasPedidos(pedidos) : fila(estado);
                     case "executeUpdate" -> 1;
+                    default -> null;
+                });
+    }
+
+    private static ResultSet filasPedidos(List<Long> pedidos) {
+        int[] posicion = {-1};
+        return (ResultSet) Proxy.newProxyInstance(ResultSet.class.getClassLoader(),
+                new Class<?>[]{ResultSet.class}, (proxy, method, args) -> switch (method.getName()) {
+                    case "next" -> ++posicion[0] < pedidos.size();
+                    case "getLong" -> pedidos.get(posicion[0]);
                     default -> null;
                 });
     }

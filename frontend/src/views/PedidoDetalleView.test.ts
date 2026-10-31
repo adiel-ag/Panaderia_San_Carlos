@@ -131,7 +131,16 @@ describe('PedidoDetalleView', () => {
     expect(wrapper.text()).toContain('Pan francés')
     expect(botonCancelar(wrapper)).toBeUndefined()
   })
-  it('conserva la página si el pedido ya está en una producción (409)', async () => {
+  it('no ofrece cancelar un pedido que ya está en una producción y enlaza a ella', async () => {
+    sesion.rol = 'ADMINISTRADOR'
+    obtenerPedido.mockResolvedValue({ ...pedido, estado: 'CONFIRMADO', idProduccion: 22 })
+    const wrapper = montar()
+    await flushPromises()
+    expect(botonCancelar(wrapper)).toBeUndefined()
+    expect(wrapper.text()).toContain('Producción')
+    expect(wrapper.findAllComponents({ name: 'RouterLink' }).some((enlace) => JSON.stringify(enlace.props('to')).includes('"id":22'))).toBe(true)
+  })
+  it('conserva la página si otro lo asoció a una producción mientras tanto (409)', async () => {
     sesion.rol = 'ADMINISTRADOR'
     obtenerPedido.mockResolvedValue({ ...pedido, estado: 'CONFIRMADO' })
     cancelarPedido.mockRejectedValue(new ApiError(409, 'CONFLICTO', 'El pedido ya está asociado a una producción'))

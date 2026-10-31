@@ -36,6 +36,8 @@ export interface Pedido {
   fechaEntrega: string
   estado: Estado
   observacion: string | null
+  /** Producción a la que pertenece; null si no está en ninguna. */
+  idProduccion?: number | null
   detalles: PedidoDetalle[]
 }
 export interface Despacho {

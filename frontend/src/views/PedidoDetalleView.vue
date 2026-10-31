@@ -35,7 +35,11 @@ const formatoCantidad = new Intl.NumberFormat('es-GT', { maximumFractionDigits: 
 let version = 0
 // Oracle solo cancela pedidos pendientes o confirmados que aún no están en una producción.
 const puedeCancelar = computed(() => (sesion.rol === 'ADMINISTRADOR' || sesion.rol === 'SUCURSAL')
-  && (pedido.value?.estado === 'PENDIENTE' || pedido.value?.estado === 'CONFIRMADO'))
+  && (pedido.value?.estado === 'PENDIENTE' || pedido.value?.estado === 'CONFIRMADO')
+  && !pedido.value?.idProduccion)
+
+// Solo los roles con acceso a Producción reciben el enlace.
+const puedeVerProduccion = computed(() => sesion.rol === 'ADMINISTRADOR' || sesion.rol === 'GERENTE' || sesion.rol === 'PRODUCCION')
 
 function nombreSucursal(idSucursal: number): string {
   return sucursales.value.find((sucursal) => sucursal.idSucursal === idSucursal)?.nombre ?? `#${idSucursal}`
@@ -130,6 +134,7 @@ watch(id, () => { void cargar() }, { immediate: true })
         <div><dt>Sucursal</dt><dd>{{ nombreSucursal(pedido.idSucursal) }}</dd></div>
         <div><dt>Entrega</dt><dd>{{ formatearFecha(pedido.fechaEntrega) }}</dd></div>
         <div><dt>Observación</dt><dd :class="{ 'texto-suave': !pedido.observacion }">{{ pedido.observacion ?? '—' }}</dd></div>
+        <div v-if="pedido.idProduccion"><dt>Producción</dt><dd><RouterLink v-if="puedeVerProduccion" :to="{ name: 'produccion-detalle', params: { id: pedido.idProduccion } }">#{{ pedido.idProduccion }}</RouterLink><template v-else>#{{ pedido.idProduccion }}</template></dd></div>
       </dl>
       <section class="seccion-pedido"><h2>Productos</h2>
         <div v-if="errorProductos" class="aviso-unidades"><Message severity="error">No se pudieron cargar las unidades de los productos.</Message><Button label="Reintentar" text @click="cargarProductos(version)" /></div>

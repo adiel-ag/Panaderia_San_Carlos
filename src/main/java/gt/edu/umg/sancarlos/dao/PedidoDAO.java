@@ -36,6 +36,8 @@ public class PedidoDAO {
                    p.fecha_entrega,
                    p.estado,
                    p.observacion,
+                   (SELECT MIN(pp.id_produccion) FROM PRODUCCION_PEDIDO pp
+                     WHERE pp.id_pedido = p.id_pedido) AS id_produccion,
                    pd.id_pedido_detalle,
                    pd.id_producto,
                    pr.nombre AS nombre_producto,
@@ -233,6 +235,8 @@ public class PedidoDAO {
         pedido.setFechaEntrega(resultSet.getDate("fecha_entrega").toLocalDate());
         pedido.setEstado(resultSet.getString("estado"));
         pedido.setObservacion(resultSet.getString("observacion"));
+        long idProduccion = resultSet.getLong("id_produccion");
+        pedido.setIdProduccion(resultSet.wasNull() ? null : idProduccion);
         return pedido;
     }
 }

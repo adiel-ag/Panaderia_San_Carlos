@@ -13,6 +13,8 @@ public class Pedido {
     private LocalDate fechaEntrega;
     private String estado;
     private String observacion;
+    /** Produccion a la que esta asociado; null si no esta en ninguna. */
+    private Long idProduccion;
     private List<PedidoDetalle> detalles = new ArrayList<>();
 
     public long getIdPedido() { return idPedido; }
@@ -27,6 +29,8 @@ public class Pedido {
     public void setEstado(String estado) { this.estado = estado; }
     public String getObservacion() { return observacion; }
     public void setObservacion(String observacion) { this.observacion = observacion; }
+    public Long getIdProduccion() { return idProduccion; }
+    public void setIdProduccion(Long idProduccion) { this.idProduccion = idProduccion; }
     public List<PedidoDetalle> getDetalles() { return detalles; }
     public void setDetalles(List<PedidoDetalle> detalles) {
         this.detalles = detalles == null ? new ArrayList<>() : new ArrayList<>(detalles);
