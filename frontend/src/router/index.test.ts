@@ -30,6 +30,14 @@ describe('rutas', () => {
     expect(rutas.find((ruta) => ruta.name === 'pedido')?.path).toBe('/pedidos/:id(\\d+)')
   })
 
+  it('protege el detalle de producción con los mismos roles de Producción', () => {
+    const ruta = router.getRoutes().find((item) => item.name === 'produccion-detalle')
+    expect(ruta?.path).toBe('/produccion/:id(\\d+)')
+    expect(ruta?.meta.roles).toEqual(['ADMINISTRADOR', 'GERENTE', 'PRODUCCION'])
+    expect(ruta?.meta.titulo).toBe('Producción')
+    expect(router.resolve('/produccion/12').name).toBe('produccion-detalle')
+  })
+
   it('registra nuevo pedido solo para administrador y sucursal', () => {
     const ruta = router.resolve('/pedidos/nuevo')
     expect(ruta.name).toBe('pedido-nuevo')

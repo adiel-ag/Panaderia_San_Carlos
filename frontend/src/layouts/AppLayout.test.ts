@@ -4,7 +4,7 @@ import PrimeVue from 'primevue/config'
 import { nextTick } from 'vue'
 import AppLayout from './AppLayout.vue'
 
-const { sesion, router, toast } = vi.hoisted(() => ({
+const { sesion, router, toast, ruta } = vi.hoisted(() => ({
   sesion: {
     rol: 'GERENTE',
     usuario: { idUsuario: 1, username: 'ana', nombre: 'Ana', rol: 'GERENTE', idSucursal: null },
@@ -12,13 +12,14 @@ const { sesion, router, toast } = vi.hoisted(() => ({
   },
   router: { replace: vi.fn() },
   toast: { add: vi.fn() },
+  ruta: { name: 'pedido' },
 }))
 
 vi.mock('../stores/sesion', () => ({ useSesionStore: () => sesion }))
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
   useRouter: () => router,
-  useRoute: () => ({ name: 'pedido' }),
+  useRoute: () => ruta,
 }))
 vi.mock('primevue/usetoast', () => ({ useToast: () => toast }))
 
@@ -28,6 +29,16 @@ describe('AppLayout', () => {
       global: { plugins: [PrimeVue], stubs: { RouterLink: true, RouterView: true, Drawer: true } },
     })
     expect(wrapper.find('[data-modulo="pedidos"]').classes()).toContain('router-link-active')
+  })
+
+  it('resalta Producción en su detalle', () => {
+    ruta.name = 'produccion-detalle'
+    const wrapper = mount(AppLayout, {
+      global: { plugins: [PrimeVue], stubs: { RouterLink: true, RouterView: true, Drawer: true } },
+    })
+    expect(wrapper.find('[data-modulo="produccion"]').classes()).toContain('router-link-active')
+    expect(wrapper.find('[data-modulo="pedidos"]').classes()).not.toContain('router-link-active')
+    ruta.name = 'pedido'
   })
 
   it('navega al login y avisa si el servidor rechaza el cierre', async () => {
