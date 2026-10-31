@@ -93,6 +93,24 @@ describe('InicioView', () => {
     expect(wrapper.find('.saludo-contexto').exists()).toBe(false)
   })
 
+  it('al pasar la medianoche actualiza la fecha y consulta los pedidos del día nuevo', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+    try {
+      vi.setSystemTime(new Date(2026, 9, 31, 23, 59, 0))
+      const wrapper = mount(InicioView, { global: { stubs: { RouterLink: enlace } } })
+      await flushPromises()
+      expect(wrapper.get('.saludo-fecha').text()).toContain('31 de octubre')
+      listarPedidos.mockClear()
+      await vi.advanceTimersByTimeAsync(2 * 60 * 1000)
+      await flushPromises()
+      expect(wrapper.get('.saludo-fecha').text()).toContain('1 de noviembre')
+      expect(listarPedidos).toHaveBeenCalledWith(expect.objectContaining({ entregaDesde: '2026-11-01', entregaHasta: '2026-11-01' }), 1, 1, false)
+      wrapper.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('presenta Hoy en el horno con el conteo de cada etapa y enlaza a Pedidos filtrado', async () => {
     const wrapper = mount(InicioView, { global: { stubs: { RouterLink: enlace } } })
     await flushPromises()

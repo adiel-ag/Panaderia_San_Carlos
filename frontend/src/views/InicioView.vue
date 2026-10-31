@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
@@ -37,7 +37,9 @@ function fechaLarga(fecha: Date): string {
   const texto = `${parte('weekday')} ${parte('day')} de ${parte('month')}`
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
-const fechaHoy = fechaLarga(new Date())
+// Se recalcula en cada carga junto con las cifras, para que nunca muestre un día viejo.
+const fechaHoy = ref(fechaLarga(new Date()))
+let temporizadorDia: ReturnType<typeof setTimeout> | undefined
 const barras = ref<Barra[]>([])
 const graficoTitulo = ref('')
 const cargando = ref(true)
@@ -59,13 +61,22 @@ async function cargarAlertas(): Promise<void> {
 }
 const maximo = computed(() => Math.max(1, ...barras.value.map((barra) => barra.cantidad)))
 
-function hoyLocal(): string {
-  const fecha = new Date()
+function hoyLocal(fecha: Date): string {
   return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
 }
 function tiene(rol: Rol | null, roles: readonly Rol[]): boolean { return rol !== null && roles.includes(rol) }
 
+// Al cambiar de día se vuelve a cargar: la fecha y las cifras "de hoy" pasan al día nuevo.
+function programarCambioDeDia(desde: Date): void {
+  clearTimeout(temporizadorDia)
+  const manana = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate() + 1)
+  temporizadorDia = setTimeout(() => { void cargar() }, manana.getTime() - desde.getTime() + 1000)
+}
+
 async function cargar(): Promise<void> {
+  const ahora = new Date()
+  fechaHoy.value = fechaLarga(ahora)
+  programarCambioDeDia(ahora)
   void cargarAlertas()
   cargando.value = true
   error.value = false
@@ -76,7 +87,7 @@ async function cargar(): Promise<void> {
   try {
     const nuevos: Indicador[] = []
     if (tiene(rol, ['ADMINISTRADOR', 'GERENTE', 'SUCURSAL', 'PRODUCCION', 'DESPACHO'])) {
-      const fecha = hoyLocal()
+      const fecha = hoyLocal(ahora)
       // Se usa el total del servidor, nunca la longitud de la primera página.
       const totales = await Promise.all(ESTADOS.map(async (estado) => ({
         estado, total: (await listarPedidos({ estado, entregaDesde: fecha, entregaHasta: fecha }, 1, 1, false)).total,
@@ -114,6 +125,7 @@ async function cargar(): Promise<void> {
   }
 }
 onMounted(() => { void cargar() })
+onUnmounted(() => { clearTimeout(temporizadorDia) })
 </script>
 
 <template>
