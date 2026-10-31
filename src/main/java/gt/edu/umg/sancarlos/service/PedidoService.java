@@ -1,6 +1,7 @@
 package gt.edu.umg.sancarlos.service;
 
 import gt.edu.umg.sancarlos.config.ConnectionFactory;
+import gt.edu.umg.sancarlos.dao.BloqueoSucursal;
 import gt.edu.umg.sancarlos.dao.PedidoDAO;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDetalleDTO;
@@ -57,6 +58,8 @@ public class PedidoService {
         try (Connection connection = ConnectionFactory.getConnection()) {
             connection.setAutoCommit(false);
             try {
+                // Un pedido nuevo no debe cruzarse con desactivar su sucursal.
+                BloqueoSucursal.bloquear(connection, solicitud.getIdSucursal());
                 long idPedido = pedidoDAO.crear(connection, solicitud);
                 for (CrearPedidoDetalleDTO detalle : solicitud.getDetalles()) {
                     pedidoDAO.agregarDetalle(connection, idPedido, detalle);

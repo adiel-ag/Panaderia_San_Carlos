@@ -1,6 +1,7 @@
 package gt.edu.umg.sancarlos.service;
 
 import gt.edu.umg.sancarlos.config.ConnectionFactory;
+import gt.edu.umg.sancarlos.dao.BloqueoSucursal;
 import gt.edu.umg.sancarlos.dao.SeguridadDAO;
 import gt.edu.umg.sancarlos.dao.UsuarioDAO;
 import gt.edu.umg.sancarlos.dto.ActualizarUsuarioDTO;
@@ -84,6 +85,7 @@ public class UsuarioService {
             HuellaClave.Nueva nueva = HuellaClave.calcularNueva(clave, iteraciones);
             return transaccion(connection -> {
                 long rol = resolverRol(connection, solicitud.rol());
+                BloqueoSucursal.bloquear(connection, solicitud.idSucursal());
                 long id = usuarioDAO.crear(connection, solicitud.nombre().trim(), username,
                         rol, solicitud.idSucursal());
                 seguridadDAO.establecerClave(connection, id, HuellaClave.ALGORITMO,
@@ -105,6 +107,7 @@ public class UsuarioService {
         validarSucursal(solicitud.idSucursal());
         return transaccion(connection -> {
             long rol = resolverRol(connection, solicitud.rol());
+            BloqueoSucursal.bloquear(connection, solicitud.idSucursal());
             usuarioDAO.actualizar(connection, id, solicitud.nombre().trim(), rol,
                     solicitud.idSucursal());
             return leer(connection, id);
@@ -115,6 +118,8 @@ public class UsuarioService {
         validarId(id);
         validarEstado(estado);
         return transaccion(connection -> {
+            // Reactivar a alguien de sucursal no debe cruzarse con desactivar esa sucursal.
+            if ("ACTIVO".equals(estado)) BloqueoSucursal.bloquearDeUsuario(connection, id);
             usuarioDAO.cambiarEstado(connection, id, estado);
             return leer(connection, id);
         });
