@@ -82,3 +82,6 @@ export function listarProductos(): Promise<Producto[]> { return api('productos')
 export function crearPedido(solicitud: SolicitudPedido): Promise<{ idPedido: number }> {
   return api('pedidos', { metodo: 'POST', cuerpo: solicitud, avisar: true })
 }
+export function cancelarPedido(id: number): Promise<Pedido> {
+  return api(`pedidos/${id}/cancelar`, { metodo: 'POST', avisar: true })
+}

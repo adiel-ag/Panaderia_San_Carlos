@@ -51,3 +51,6 @@ export function registrarProducido(id: number, idProducto: number, cantidad: num
 export function finalizarProduccion(id: number): Promise<unknown> {
   return api(`producciones/${id}/finalizar`, { metodo: 'POST' })
 }
+export function cancelarProduccion(id: number): Promise<ProduccionConPedidos> {
+  return api(`producciones/${id}/cancelar`, { metodo: 'POST', avisar: true })
+}

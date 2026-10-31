@@ -12,7 +12,7 @@ import { ApiError } from '../api/cliente'
 import { formatearFecha, formatearFechaHora } from '../api/fechas'
 import { listarPedidos, listarProductos, type PedidoResumen, type Producto } from '../api/pedidos'
 import {
-  asociarPedido, etiquetaEstadoProduccion, finalizarProduccion, generarPlan, obtenerDetalleProduccion, obtenerProduccion, registrarProducido,
+  asociarPedido, cancelarProduccion, etiquetaEstadoProduccion, finalizarProduccion, generarPlan, obtenerDetalleProduccion, obtenerProduccion, registrarProducido,
   type EstadoProduccion as Estado, type ProduccionConPedidos, type ProduccionDetalle,
 } from '../api/producciones'
 import { useSesionStore } from '../stores/sesion'
@@ -37,7 +37,7 @@ const productos = ref<Producto[]>([])
 const cargando = ref(true)
 const error = ref<'no-encontrado' | 'general' | null>(null)
 const errorPlan = ref(false)
-const accion = ref<'plan' | 'finalizar' | null>(null)
+const accion = ref<'plan' | 'finalizar' | 'cancelar' | null>(null)
 const borradores = reactive<Record<number, number | null>>({})
 const guardando = reactive<Record<number, boolean>>({})
 const dialogoPedido = ref(false)
@@ -51,6 +51,7 @@ const formatoCantidad = new Intl.NumberFormat('es-GT', { maximumFractionDigits: 
 let version = 0
 
 const estado = computed(() => produccion.value?.estado ?? null)
+const puedeCancelar = computed(() => puedeCambiar.value && estado.value === 'PLANIFICADA')
 const editable = computed(() => puedeCambiar.value && estado.value === 'EN_PROCESO')
 const conPlan = computed(() => estado.value === 'EN_PROCESO' || estado.value === 'FINALIZADA')
 const filas = computed(() => filasPlan(detalle.value, productos.value))
@@ -187,13 +188,37 @@ async function ejecutarFinalizar(): Promise<void> {
   finally { accion.value = null }
 }
 
+// Solo una producción planificada; sus pedidos siguen confirmados y quedan libres.
+function pedirCancelar(): void {
+  if (accion.value) return
+  confirm.require({
+    header: `¿Cancelar la producción #${id.value}?`, message: 'Se cancelará y sus pedidos quedarán libres para otra producción.',
+    acceptLabel: 'Cancelar producción', rejectLabel: 'Volver',
+    acceptProps: { severity: 'danger', outlined: true }, rejectProps: { text: true },
+    accept: () => { void ejecutarCancelar() },
+  })
+}
+async function ejecutarCancelar(): Promise<void> {
+  if (accion.value) return
+  accion.value = 'cancelar'
+  const idProduccion = id.value
+  try {
+    await cancelarProduccion(idProduccion)
+    toast.add({ severity: 'success', summary: `Producción #${idProduccion} cancelada`, life: 5000 })
+    await cargar(true)
+  } catch { /* el cliente ya avisó */ }
+  finally { accion.value = null }
+}
+
 watch(id, () => { void cargar() }, { immediate: true })
 </script>
 
 <template>
   <section class="pagina pagina-pedido-detalle pagina-produccion-detalle">
     <RouterLink :to="volver" class="volver-pedidos">← Producción</RouterLink>
-    <div class="titulo-pedido"><h1>Producción #{{ id }}</h1><EstadoProduccion v-if="produccion" :estado="produccion.estado" /></div>
+    <div class="titulo-pedido"><h1>Producción #{{ id }}</h1><EstadoProduccion v-if="produccion" :estado="produccion.estado" />
+      <Button v-if="puedeCancelar" label="Cancelar producción" icon="pi pi-times" severity="danger" outlined :loading="accion === 'cancelar'" :disabled="accion !== null" @click="pedirCancelar" />
+    </div>
     <div v-if="cargando" class="detalle-cargando" aria-label="Cargando producción">
       <div class="esqueleto-fila" /><div class="esqueleto-fila" /><div class="esqueleto-fila" />
     </div>

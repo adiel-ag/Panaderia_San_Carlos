@@ -96,11 +96,13 @@ class MatrizRolesTest {
             Map.entry("PedidoResource.crearPedido", Set.of(ADMIN, SUCURSAL)),
             Map.entry("PedidoResource.buscarPedidoPorId", Set.of(ADMIN, GERENTE, SUCURSAL, PRODUCCION, DESPACHO)),
             Map.entry("PedidoResource.listarPedidos", Set.of(ADMIN, GERENTE, SUCURSAL, PRODUCCION, DESPACHO)),
+            Map.entry("PedidoResource.cancelarPedido", Set.of(ADMIN, SUCURSAL)),
             Map.entry("ProduccionResource.crearProduccion", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.asociarPedido", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.generarPlan", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.registrarCantidadProducida", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.finalizarProduccion", Set.of(ADMIN, PRODUCCION)),
+            Map.entry("ProduccionResource.cancelarProduccion", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.consultarDetalle", Set.of(ADMIN, GERENTE, PRODUCCION)),
             Map.entry("ProduccionResource.listarProducciones", Set.of(ADMIN, GERENTE, PRODUCCION)),
             Map.entry("ProduccionResource.buscarProduccionPorId", Set.of(ADMIN, GERENTE, PRODUCCION)),
@@ -133,11 +135,13 @@ class MatrizRolesTest {
             Map.entry("PedidoResource.crearPedido", new CasoHttp("POST", "pedidos", "{\"idSucursal\":1}")),
             Map.entry("PedidoResource.buscarPedidoPorId", new CasoHttp("GET", "pedidos/2", null)),
             Map.entry("PedidoResource.listarPedidos", new CasoHttp("GET", "pedidos", null)),
+            Map.entry("PedidoResource.cancelarPedido", new CasoHttp("POST", "pedidos/2/cancelar", null)),
             Map.entry("ProduccionResource.crearProduccion", new CasoHttp("POST", "producciones", "{}")),
             Map.entry("ProduccionResource.asociarPedido", new CasoHttp("POST", "producciones/4/pedidos", "{\"idPedido\":2}")),
             Map.entry("ProduccionResource.generarPlan", new CasoHttp("POST", "producciones/4/generar-plan", null)),
             Map.entry("ProduccionResource.registrarCantidadProducida", new CasoHttp("PUT", "producciones/4/productos/33/cantidad-producida", "{\"cantidadProducida\":1}")),
             Map.entry("ProduccionResource.finalizarProduccion", new CasoHttp("POST", "producciones/4/finalizar", null)),
+            Map.entry("ProduccionResource.cancelarProduccion", new CasoHttp("POST", "producciones/4/cancelar", null)),
             Map.entry("ProduccionResource.consultarDetalle", new CasoHttp("GET", "producciones/4/detalle", null)),
             Map.entry("ProduccionResource.listarProducciones", new CasoHttp("GET", "producciones", null)),
             Map.entry("ProduccionResource.buscarProduccionPorId", new CasoHttp("GET", "producciones/4", null)),
@@ -305,6 +309,14 @@ class MatrizRolesTest {
                             String estado, Long idSucursal, LocalDate desde, LocalDate hasta) {
                         return new Pagina<>(List.of(), 0, pagina, tamano);
                     }
+
+                    @Override public Pedido cancelarPedido(long idPedido, UsuarioSesion usuario) {
+                        Pedido pedido = new Pedido();
+                        pedido.setIdPedido(idPedido);
+                        pedido.setIdSucursal(1);
+                        pedido.setEstado("CANCELADO");
+                        return pedido;
+                    }
                 }))
                 .register(new DespachoResource(new DespachoService() {
                     @Override
@@ -373,6 +385,10 @@ class MatrizRolesTest {
                     @Override public Pagina<ProduccionResumenDTO> listar(int pagina, int tamano,
                             String estado) {
                         return new Pagina<>(List.of(), 0, pagina, tamano);
+                    }
+
+                    @Override public ProduccionConPedidosDTO cancelarProduccion(long idProduccion) {
+                        return buscarPorId(idProduccion);
                     }
 
                     @Override public ProduccionConPedidosDTO buscarPorId(long idProduccion) {

@@ -5,7 +5,9 @@ import gt.edu.umg.sancarlos.dto.AsociarPedidoDTO;
 import gt.edu.umg.sancarlos.dto.CantidadProducidaDTO;
 import gt.edu.umg.sancarlos.dto.CrearProduccionDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionCreadaDTO;
+import gt.edu.umg.sancarlos.dto.ProduccionConPedidosDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionOperacionDTO;
+import gt.edu.umg.sancarlos.dto.ProduccionResumenDTO;
 import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
 import gt.edu.umg.sancarlos.exception.ProduccionConflictoException;
 import gt.edu.umg.sancarlos.exception.ProduccionNoEncontradaException;
@@ -27,8 +29,11 @@ import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import jakarta.annotation.security.RolesAllowed;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -252,6 +257,50 @@ class ProduccionResourceTest {
             String message = ((ApiError) response.getEntity()).getMessage();
             assertFalse(message.contains("ORA-"));
         }
+    }
+
+    @Test
+    void cancelarProduccionEsPostParaAdministradorYProduccion() throws Exception {
+        Method cancelar = ProduccionResource.class.getMethod("cancelarProduccion", String.class);
+        assertNotNull(cancelar.getAnnotation(POST.class));
+        assertEquals("{id}/cancelar", cancelar.getAnnotation(Path.class).value());
+        assertNull(cancelar.getAnnotation(Consumes.class), "cancelar no necesita cuerpo");
+        assertEquals(Set.of(Roles.ADMINISTRADOR, Roles.PRODUCCION),
+                Set.of(cancelar.getAnnotation(RolesAllowed.class).value()));
+    }
+
+    @Test
+    void cancelaProduccionCon200Y409O404SegunElCaso() {
+        ProduccionResource resource = new ProduccionResource(new ProduccionService() {
+            @Override
+            public ProduccionConPedidosDTO cancelarProduccion(long idProduccion) {
+                if (idProduccion == 404) {
+                    throw new ProduccionNoEncontradaException("No existe una producción con ID 404", null);
+                }
+                if (idProduccion == 409) {
+                    throw new ProduccionConflictoException(
+                            "Solo se puede cancelar una producción planificada", null);
+                }
+                return new ProduccionConPedidosDTO(new ProduccionResumenDTO(idProduccion, 1,
+                        "Usuario", LocalDateTime.of(2026, 10, 31, 8, 0), "CANCELADA", null, 0),
+                        List.of());
+            }
+        });
+
+        try (Response response = resource.cancelarProduccion("90")) {
+            assertEquals(200, response.getStatus());
+            assertEquals("CANCELADA", assertInstanceOf(ProduccionConPedidosDTO.class,
+                    response.getEntity()).estado());
+        }
+        try (Response response = mapper.toResponse(assertThrows(ProduccionConflictoException.class,
+                () -> resource.cancelarProduccion("409")))) {
+            assertEquals(409, response.getStatus());
+        }
+        try (Response response = mapper.toResponse(assertThrows(ProduccionNoEncontradaException.class,
+                () -> resource.cancelarProduccion("404")))) {
+            assertEquals(404, response.getStatus());
+        }
+        assertThrows(BadRequestException.class, () -> resource.cancelarProduccion("x"));
     }
 
     private static CantidadProducidaDTO cantidad(String valor) {

@@ -2,10 +2,13 @@ package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
 import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
+import gt.edu.umg.sancarlos.exception.PedidoConflictoException;
+import gt.edu.umg.sancarlos.exception.PedidoNoEncontradoException;
 import gt.edu.umg.sancarlos.model.Pedido;
 import gt.edu.umg.sancarlos.model.PedidoDetalle;
 import gt.edu.umg.sancarlos.model.UsuarioSesion;
 import gt.edu.umg.sancarlos.service.PedidoService;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -21,6 +24,7 @@ import java.net.URI;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -137,6 +141,63 @@ class PedidoResourceTest {
             try (Response response = resource.buscarPedidoPorId("501", usuarioConSucursal(rol, 1L))) {
                 assertEquals(200, response.getStatus(), rol);
             }
+        }
+    }
+
+    @Test
+    void cancelarEsPostSobreElPedidoParaAdministradorYSucursal() throws Exception {
+        var cancelar = PedidoResource.class.getMethod("cancelarPedido", String.class,
+                SecurityContext.class);
+        assertNotNull(cancelar.getAnnotation(POST.class));
+        assertEquals("{id}/cancelar", cancelar.getAnnotation(Path.class).value());
+        assertEquals(Set.of(Roles.ADMINISTRADOR, Roles.SUCURSAL),
+                Set.of(cancelar.getAnnotation(RolesAllowed.class).value()));
+    }
+
+    @Test
+    void cancelaPedidoCon200YElPedidoActualizado() {
+        Pedido cancelado = pedidoConDetalle();
+        cancelado.setEstado("CANCELADO");
+        PedidoResource resource = new PedidoResource(new PedidoService() {
+            @Override
+            public Pedido cancelarPedido(long idPedido, UsuarioSesion usuario) {
+                assertEquals(501, idPedido);
+                assertEquals(Long.valueOf(2), usuario.getIdSucursal(), "el usuario sale de la sesion");
+                return cancelado;
+            }
+        });
+
+        try (Response response = resource.cancelarPedido("501",
+                usuarioConSucursal(Roles.SUCURSAL, 2L))) {
+            assertEquals(200, response.getStatus());
+            assertEquals("CANCELADO", assertInstanceOf(Pedido.class, response.getEntity()).getEstado());
+        }
+    }
+
+    @Test
+    void cancelarValidaIdSesionYTraduceErroresA409Y404() {
+        ApiExceptionMapper mapper = new ApiExceptionMapper();
+        PedidoResource resource = new PedidoResource(new PedidoService() {
+            @Override
+            public Pedido cancelarPedido(long idPedido, UsuarioSesion usuario) {
+                if (idPedido == 404) {
+                    throw new PedidoNoEncontradoException("No existe un pedido con ID 404", null);
+                }
+                throw new PedidoConflictoException("El pedido ya está asociado a una producción", null);
+            }
+        });
+        SecurityContext admin = usuarioConSucursal(Roles.ADMINISTRADOR, null);
+
+        assertThrows(BadRequestException.class, () -> resource.cancelarPedido("abc", admin));
+        assertThrows(BadRequestException.class, () -> resource.cancelarPedido("0", admin));
+        assertThrows(NoAutenticadoException.class, () -> resource.cancelarPedido("501", null));
+        try (Response response = mapper.toResponse(assertThrows(PedidoConflictoException.class,
+                () -> resource.cancelarPedido("501", admin)))) {
+            assertEquals(409, response.getStatus());
+        }
+        try (Response response = mapper.toResponse(assertThrows(PedidoNoEncontradoException.class,
+                () -> resource.cancelarPedido("404", admin)))) {
+            assertEquals(404, response.getStatus());
         }
     }
 

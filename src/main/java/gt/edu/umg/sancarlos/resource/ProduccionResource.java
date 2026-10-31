@@ -130,6 +130,15 @@ public class ProduccionResource {
                 "Producción finalizada")).build();
     }
 
+    /** Solo una producción planificada; sus pedidos quedan libres para otra. */
+    @POST
+    @Path("{id}/cancelar")
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.PRODUCCION})
+    public Response cancelarProduccion(@PathParam("id") String id) {
+        long idProduccion = parsearId(id, "producción");
+        return Response.ok(produccionService.cancelarProduccion(idProduccion)).build();
+    }
+
     private static long parsearId(String valor, String nombre) {
         final long id;
         try {

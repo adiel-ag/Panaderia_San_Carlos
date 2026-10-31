@@ -89,6 +89,28 @@ public class PedidoResource {
             Roles.PRODUCCION, Roles.DESPACHO})
     public Response buscarPedidoPorId(@PathParam("id") String id,
             @Context SecurityContext seguridad) {
+        long idPedido = parsearId(id);
+        Optional<Pedido> pedido = pedidoService.buscarPedidoPorId(idPedido);
+        Pedido encontrado = pedido.orElseThrow(() -> new NotFoundException(
+                "No existe un pedido con ID " + idPedido));
+        if (!AlcanceSucursal.puedeVer(UsuarioActual.de(seguridad), encontrado.getIdSucursal())) {
+            throw new NotFoundException("No existe un pedido con ID " + idPedido);
+        }
+        return Response.ok(encontrado).build();
+    }
+
+    /** Cancela un pedido pendiente o confirmado que aun no esta en una produccion. */
+    @POST
+    @Path("{id}/cancelar")
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.SUCURSAL})
+    public Response cancelarPedido(@PathParam("id") String id,
+            @Context SecurityContext seguridad) {
+        long idPedido = parsearId(id);
+        return Response.ok(pedidoService.cancelarPedido(idPedido,
+                UsuarioActual.de(seguridad))).build();
+    }
+
+    private static long parsearId(String id) {
         final long idPedido;
         try {
             idPedido = Long.parseLong(id);
@@ -98,14 +120,7 @@ public class PedidoResource {
         if (idPedido <= 0) {
             throw new BadRequestException("El ID del pedido debe ser un número entero positivo.");
         }
-
-        Optional<Pedido> pedido = pedidoService.buscarPedidoPorId(idPedido);
-        Pedido encontrado = pedido.orElseThrow(() -> new NotFoundException(
-                "No existe un pedido con ID " + idPedido));
-        if (!AlcanceSucursal.puedeVer(UsuarioActual.de(seguridad), encontrado.getIdSucursal())) {
-            throw new NotFoundException("No existe un pedido con ID " + idPedido);
-        }
-        return Response.ok(encontrado).build();
+        return idPedido;
     }
 
     private static Long sucursal(String texto) {

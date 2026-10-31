@@ -26,14 +26,26 @@ public class ProduccionService {
 
     private final ProduccionDAO produccionDAO;
     private final PedidoDAO pedidoDAO;
+    private final ProveedorConexion conexiones;
+
+    @FunctionalInterface
+    interface ProveedorConexion {
+        Connection abrir() throws SQLException;
+    }
 
     public ProduccionService() {
         this(new ProduccionDAO());
     }
 
     ProduccionService(ProduccionDAO produccionDAO) {
+        this(produccionDAO, new PedidoDAO(), ConnectionFactory::getConnection);
+    }
+
+    ProduccionService(ProduccionDAO produccionDAO, PedidoDAO pedidoDAO,
+            ProveedorConexion conexiones) {
         this.produccionDAO = produccionDAO;
-        this.pedidoDAO = new PedidoDAO();
+        this.pedidoDAO = pedidoDAO;
+        this.conexiones = conexiones;
     }
 
     /** Lista producciones sin los pedidos asociados. */
@@ -156,8 +168,21 @@ public class ProduccionService {
         });
     }
 
+    /** Cancela una producción planificada y libera sus pedidos en una sola transacción. */
+    public ProduccionConPedidosDTO cancelarProduccion(long idProduccion) {
+        validarId(idProduccion, "producción");
+        return enTransaccion("No fue posible cancelar la producción", connection -> {
+            produccionDAO.cancelar(connection, idProduccion);
+            ProduccionResumenDTO resumen = produccionDAO.buscarResumenPorId(connection, idProduccion)
+                    .orElseThrow(() -> new ProduccionNoEncontradaException(
+                            "No existe una producción con ID " + idProduccion, null));
+            return new ProduccionConPedidosDTO(resumen,
+                    pedidoDAO.listarDeProduccion(connection, idProduccion));
+        });
+    }
+
     private <T> T enTransaccion(String mensajeError, TrabajoTransaccional<T> trabajo) {
-        try (Connection connection = ConnectionFactory.getConnection()) {
+        try (Connection connection = conexiones.abrir()) {
             connection.setAutoCommit(false);
             try {
                 T resultado = trabajo.ejecutar(connection);

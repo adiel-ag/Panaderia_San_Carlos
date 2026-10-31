@@ -9,13 +9,14 @@ import { ApiError } from '../api/cliente'
 
 const api = vi.hoisted(() => ({
   obtenerProduccion: vi.fn(), obtenerDetalleProduccion: vi.fn(), asociarPedido: vi.fn(), generarPlan: vi.fn(),
-  registrarProducido: vi.fn(), finalizarProduccion: vi.fn(), listarPedidos: vi.fn(), listarProductos: vi.fn(),
+  registrarProducido: vi.fn(), finalizarProduccion: vi.fn(), cancelarProduccion: vi.fn(), listarPedidos: vi.fn(), listarProductos: vi.fn(),
   toast: vi.fn(), confirmar: vi.fn(), sesion: { rol: 'PRODUCCION' },
 }))
 const route = reactive({ params: { id: '5' }, query: {} as Record<string, string> })
 vi.mock('../api/producciones', async (original) => ({ ...(await original<typeof import('../api/producciones')>()),
   obtenerProduccion: api.obtenerProduccion, obtenerDetalleProduccion: api.obtenerDetalleProduccion, asociarPedido: api.asociarPedido,
-  generarPlan: api.generarPlan, registrarProducido: api.registrarProducido, finalizarProduccion: api.finalizarProduccion }))
+  generarPlan: api.generarPlan, registrarProducido: api.registrarProducido, finalizarProduccion: api.finalizarProduccion,
+  cancelarProduccion: api.cancelarProduccion }))
 vi.mock('../api/pedidos', async (original) => ({ ...(await original<typeof import('../api/pedidos')>()),
   listarPedidos: api.listarPedidos, listarProductos: api.listarProductos }))
 vi.mock('../stores/sesion', () => ({ useSesionStore: () => api.sesion }))
@@ -67,6 +68,7 @@ beforeEach(() => {
   api.generarPlan.mockResolvedValue([])
   api.registrarProducido.mockResolvedValue(undefined)
   api.finalizarProduccion.mockResolvedValue(undefined)
+  api.cancelarProduccion.mockResolvedValue(produccion('CANCELADA', []))
 })
 
 describe('ProduccionDetalleView', () => {
@@ -197,6 +199,54 @@ describe('ProduccionDetalleView', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('#7')
     expect(boton(wrapper, 'Generar plan')!.attributes('disabled')).toBeUndefined()
+  })
+
+  it('ofrece cancelar solo producciones planificadas a ADMINISTRADOR y PRODUCCION', async () => {
+    const casos: Array<[string, string, boolean]> = [
+      ['PRODUCCION', 'PLANIFICADA', true], ['ADMINISTRADOR', 'PLANIFICADA', true], ['GERENTE', 'PLANIFICADA', false],
+      ['PRODUCCION', 'EN_PROCESO', false], ['ADMINISTRADOR', 'FINALIZADA', false], ['PRODUCCION', 'CANCELADA', false],
+    ]
+    for (const [rol, estado, visible] of casos) {
+      api.sesion.rol = rol
+      api.obtenerProduccion.mockResolvedValue(produccion(estado))
+      const wrapper = await montar()
+      expect(Boolean(boton(wrapper, 'Cancelar producción')), `${rol} ${estado}`).toBe(visible)
+      montajes.pop()
+      wrapper.unmount()
+    }
+  })
+
+  it('confirma, cancela y recarga la producción en su lugar', async () => {
+    api.obtenerProduccion.mockResolvedValueOnce(produccion('PLANIFICADA')).mockResolvedValueOnce(produccion('CANCELADA', []))
+    const wrapper = await montar()
+    const cancelar = boton(wrapper, 'Cancelar producción')!
+    expect(cancelar.classes()).toContain('p-button-danger')
+    expect(cancelar.classes()).toContain('p-button-outlined')
+    await cancelar.trigger('click')
+    await flushPromises()
+    expect(api.confirmar).toHaveBeenCalledWith(expect.objectContaining({
+      header: '¿Cancelar la producción #5?', message: 'Se cancelará y sus pedidos quedarán libres para otra producción.',
+      acceptLabel: 'Cancelar producción', rejectLabel: 'Volver', acceptProps: expect.objectContaining({ severity: 'danger' }),
+    }))
+    expect(api.cancelarProduccion).toHaveBeenCalledWith(5)
+    expect(api.toast).toHaveBeenCalledWith(expect.objectContaining({ severity: 'success', summary: 'Producción #5 cancelada' }))
+    expect(api.obtenerProduccion).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('Cancelada')
+    expect(wrapper.text()).toContain('Esta producción aún no tiene pedidos.')
+    expect(boton(wrapper, 'Cancelar producción')).toBeUndefined()
+    expect(boton(wrapper, 'Generar plan')).toBeUndefined()
+  })
+
+  it('conserva la página si la producción ya no se puede cancelar (409)', async () => {
+    api.cancelarProduccion.mockRejectedValue(new ApiError(409, 'CONFLICTO', 'Solo se puede cancelar una producción planificada'))
+    const wrapper = await montar()
+    await boton(wrapper, 'Cancelar producción')!.trigger('click')
+    await flushPromises()
+    expect(api.cancelarProduccion).toHaveBeenCalledWith(5)
+    expect(api.toast).not.toHaveBeenCalled()
+    expect(api.obtenerProduccion).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('#7')
+    expect(boton(wrapper, 'Cancelar producción')!.attributes('disabled')).toBeUndefined()
   })
 
   it('informa una producción inexistente', async () => {

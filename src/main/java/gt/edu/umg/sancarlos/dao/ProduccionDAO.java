@@ -1,6 +1,8 @@
 package gt.edu.umg.sancarlos.dao;
 
 import gt.edu.umg.sancarlos.config.ConnectionFactory;
+import gt.edu.umg.sancarlos.exception.ProduccionConflictoException;
+import gt.edu.umg.sancarlos.exception.ProduccionNoEncontradaException;
 import gt.edu.umg.sancarlos.model.ProduccionDetalle;
 import gt.edu.umg.sancarlos.dto.Pagina;
 import gt.edu.umg.sancarlos.dto.ProduccionResumenDTO;
@@ -38,6 +40,12 @@ public class ProduccionDAO {
              WHERE id_produccion = ?
              ORDER BY id_producto
             """;
+    private static final String SQL_BLOQUEAR_ESTADO =
+            "SELECT estado FROM PRODUCCION WHERE id_produccion = ? FOR UPDATE";
+    private static final String SQL_LIBERAR_PEDIDOS =
+            "DELETE FROM PRODUCCION_PEDIDO WHERE id_produccion = ?";
+    private static final String SQL_CANCELAR =
+            "UPDATE PRODUCCION SET estado = 'CANCELADA' WHERE id_produccion = ?";
     private static final String SQL_EXISTE =
             "SELECT COUNT(*) FROM PRODUCCION WHERE id_produccion = ?";
     private static final String SQL_RESUMEN_SELECT = """
@@ -134,6 +142,40 @@ public class ProduccionDAO {
             ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idProduccion);
             statement.execute();
+        }
+    }
+
+    /**
+     * Cancela una producción planificada y libera sus pedidos, que siguen
+     * CONFIRMADO porque asociarlos no les cambió el estado. No hace commit.
+     */
+    public void cancelar(Connection connection, long idProduccion) throws SQLException {
+        String estado;
+        try (PreparedStatement statement = connection.prepareStatement(SQL_BLOQUEAR_ESTADO)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idProduccion);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    throw new ProduccionNoEncontradaException(
+                            "No existe una producción con ID " + idProduccion, null);
+                }
+                estado = resultSet.getString("estado");
+            }
+        }
+        if (!"PLANIFICADA".equals(estado)) {
+            throw new ProduccionConflictoException(
+                    "Solo se puede cancelar una producción planificada", null);
+        }
+        actualizar(connection, SQL_LIBERAR_PEDIDOS, idProduccion);
+        actualizar(connection, SQL_CANCELAR, idProduccion);
+    }
+
+    private static void actualizar(Connection connection, String sql, long idProduccion)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idProduccion);
+            statement.executeUpdate();
         }
     }
 

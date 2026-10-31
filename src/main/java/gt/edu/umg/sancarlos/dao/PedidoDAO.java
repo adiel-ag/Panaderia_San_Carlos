@@ -27,6 +27,8 @@ public class PedidoDAO {
             "{ call PKG_PEDIDO.SP_AGREGAR_DETALLE(?, ?, ?) }";
     private static final String SP_CONFIRMAR_PEDIDO =
             "{ call PKG_PEDIDO.SP_CONFIRMAR_PEDIDO(?) }";
+    private static final String SP_CANCELAR_PEDIDO =
+            "{ call PKG_PEDIDO.SP_CANCELAR_PEDIDO(?) }";
     private static final String SQL_BUSCAR_POR_ID = """
             SELECT p.id_pedido,
                    p.id_sucursal,
@@ -179,6 +181,15 @@ public class PedidoDAO {
     /** Confirma el pedido mediante el paquete Oracle. */
     public void confirmar(Connection connection, long idPedido) throws SQLException {
         try (CallableStatement statement = connection.prepareCall(SP_CONFIRMAR_PEDIDO)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idPedido);
+            statement.execute();
+        }
+    }
+
+    /** Cancela el pedido mediante el paquete Oracle; el commit lo hace el servicio. */
+    public void cancelar(Connection connection, long idPedido) throws SQLException {
+        try (CallableStatement statement = connection.prepareCall(SP_CANCELAR_PEDIDO)) {
             ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idPedido);
             statement.execute();

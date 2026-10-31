@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { useConfirm } from 'primevue/useconfirm'
+import { useToast } from 'primevue/usetoast'
 import Message from 'primevue/message'
 import Button from 'primevue/button'
 import { ApiError } from '../api/cliente'
 import { formatearFecha, formatearFechaHora } from '../api/fechas'
-import { listarProductos, listarSucursales, obtenerDespacho, obtenerPedido, type Despacho, type Pedido, type Producto, type Sucursal } from '../api/pedidos'
+import { cancelarPedido, listarProductos, listarSucursales, obtenerDespacho, obtenerPedido, type Despacho, type Pedido, type Producto, type Sucursal } from '../api/pedidos'
 import { useSesionStore } from '../stores/sesion'
 import EstadoPedido from '../components/EstadoPedido.vue'
 
 const route = useRoute()
 const sesion = useSesionStore()
+const toast = useToast()
+const confirm = useConfirm()
 const id = computed(() => Number(route.params.id))
 const puedeVerDespacho = computed(() => sesion.rol !== 'PRODUCCION')
 const volver = computed(() => {
@@ -26,8 +30,12 @@ const cargando = ref(true)
 const error = ref<'no-encontrado' | 'general' | null>(null)
 const errorDespacho = ref(false)
 const errorProductos = ref(false)
+const cancelando = ref(false)
 const formatoCantidad = new Intl.NumberFormat('es-GT', { maximumFractionDigits: 2 })
 let version = 0
+// Oracle solo cancela pedidos pendientes o confirmados que aún no están en una producción.
+const puedeCancelar = computed(() => (sesion.rol === 'ADMINISTRADOR' || sesion.rol === 'SUCURSAL')
+  && (pedido.value?.estado === 'PENDIENTE' || pedido.value?.estado === 'CONFIRMADO'))
 
 function nombreSucursal(idSucursal: number): string {
   return sucursales.value.find((sucursal) => sucursal.idSucursal === idSucursal)?.nombre ?? `#${idSucursal}`
@@ -47,14 +55,17 @@ async function cargarProductos(actual: number): Promise<void> {
     if (actual === version) productos.value = items
   } catch { if (actual === version) errorProductos.value = true }
 }
-async function cargar(): Promise<void> {
+// Al recargar tras una acción se conservan los datos a la vista.
+async function cargar(silencioso = false): Promise<void> {
   const actual = ++version
-  cargando.value = true
+  if (!silencioso) {
+    cargando.value = true
+    pedido.value = null
+    despacho.value = null
+  }
   error.value = null
   errorDespacho.value = false
   errorProductos.value = false
-  pedido.value = null
-  despacho.value = null
   try {
     const resultado = await obtenerPedido(id.value)
     if (actual !== version) return
@@ -69,10 +80,36 @@ async function cargar(): Promise<void> {
     )
     await Promise.all(tareas)
   } catch (causa) {
-    if (actual === version) error.value = causa instanceof ApiError && (causa.status === 404 || causa.status === 400) ? 'no-encontrado' : 'general'
+    if (actual !== version) return
+    if (causa instanceof ApiError && (causa.status === 404 || causa.status === 400)) {
+      pedido.value = null
+      error.value = 'no-encontrado'
+    } else if (!pedido.value) error.value = 'general'
   } finally {
     if (actual === version) cargando.value = false
   }
+}
+
+function pedirCancelar(): void {
+  if (cancelando.value) return
+  confirm.require({
+    header: `¿Cancelar el pedido #${id.value}?`,
+    message: 'El pedido quedará cancelado y no se podrá producir ni despachar. Solo se puede cancelar si aún no está en una producción.',
+    acceptLabel: 'Cancelar pedido', rejectLabel: 'Volver',
+    acceptProps: { severity: 'danger', outlined: true }, rejectProps: { text: true },
+    accept: () => { void ejecutarCancelar() },
+  })
+}
+async function ejecutarCancelar(): Promise<void> {
+  if (cancelando.value) return
+  cancelando.value = true
+  const idPedido = id.value
+  try {
+    await cancelarPedido(idPedido)
+    toast.add({ severity: 'success', summary: `Pedido #${idPedido} cancelado`, life: 5000 })
+    await cargar(true)
+  } catch { /* el cliente ya avisó */ }
+  finally { cancelando.value = false }
 }
 watch(id, () => { void cargar() }, { immediate: true })
 </script>
@@ -80,7 +117,9 @@ watch(id, () => { void cargar() }, { immediate: true })
 <template>
   <section class="pagina pagina-pedido-detalle">
     <RouterLink :to="volver" class="volver-pedidos">← {{ etiquetaVolver }}</RouterLink>
-    <div class="titulo-pedido"><h1>Pedido #{{ id }}</h1><EstadoPedido v-if="pedido" :estado="pedido.estado" /></div>
+    <div class="titulo-pedido"><h1>Pedido #{{ id }}</h1><EstadoPedido v-if="pedido" :estado="pedido.estado" />
+      <Button v-if="puedeCancelar" label="Cancelar pedido" icon="pi pi-times" severity="danger" outlined :loading="cancelando" :disabled="cancelando" @click="pedirCancelar" />
+    </div>
     <div v-if="cargando" class="detalle-cargando" aria-label="Cargando pedido">
       <div class="esqueleto-fila" /><div class="esqueleto-fila" /><div class="esqueleto-fila" />
     </div>
