@@ -16,6 +16,8 @@
         <jackson.version>2.19.1</jackson.version>
         <ojdbc.version>23.26.3.0.0</ojdbc.version>
         <junit.version>5.11.4</junit.version>
+        <skipFrontend>false</skipFrontend>
+        <skipFrontendTests>false</skipFrontendTests>
     </properties>
     
     <dependencies>
@@ -73,10 +75,97 @@
                 <version>3.4.0</version>
                 <configuration>
                     <failOnMissingWebXml>false</failOnMissingWebXml>
+                    <webResources>
+                        <resource>
+                            <directory>${project.build.directory}/frontend</directory>
+                            <targetPath>/</targetPath>
+                        </resource>
+                    </webResources>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>1.15.1</version>
+                <configuration>
+                    <workingDirectory>frontend</workingDirectory>
+                    <installDirectory>target</installDirectory>
+                    <nodeVersion>v22.18.0</nodeVersion>
+                    <npmVersion>11.21.1</npmVersion>
+                    <skip>${skipFrontend}</skip>
+                    <environmentVariables>
+                        <npm_config_cache>${project.build.directory}/npm-cache</npm_config_cache>
+                    </environmentVariables>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>instalar-node</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>instalar-dependencias-frontend</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>ci</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>compilar-frontend</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>probar-frontend</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>test</arguments>
+                            <skip>${skipFrontendTests}</skip>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>omitir-pruebas-frontend</id>
+            <activation>
+                <property>
+                    <name>skipTests</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <properties>
+                <skipFrontendTests>true</skipFrontendTests>
+            </properties>
+        </profile>
+        <profile>
+            <id>omitir-frontend</id>
+            <activation>
+                <property>
+                    <name>skipFrontend</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <properties>
+                <skipFrontendTests>true</skipFrontendTests>
+            </properties>
+        </profile>
+    </profiles>
 </project>
 
 

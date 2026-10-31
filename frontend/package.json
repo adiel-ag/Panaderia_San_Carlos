@@ -1,0 +1,28 @@
+{
+  "name": "panaderia-san-carlos-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "test": "vitest run",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@primeuix/themes": "3.1.0",
+    "pinia": "4.1.0",
+    "primevue": "4.5.5",
+    "vue": "3.5.44",
+    "vue-router": "5.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@vitejs/plugin-vue": "6.0.10",
+    "jsdom": "29.1.1",
+    "typescript": "6.0.3",
+    "vite": "8.3.5",
+    "vitest": "5.0.5",
+    "vue-tsc": "3.3.14"
+  }
+}
