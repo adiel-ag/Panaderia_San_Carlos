@@ -50,7 +50,7 @@ async function cerrarSesion(): Promise<void> {
     <div class="app-cuerpo">
       <aside class="navegacion-lateral" aria-label="Módulos">
         <nav>
-          <RouterLink v-for="opcion in opcionesMenu(sesion.rol)" :key="opcion.nombre" class="enlace-menu" :class="{ 'router-link-active': opcion.nombre === 'pedidos' && route.name === 'pedido' }" :data-modulo="opcion.nombre" :to="{ name: opcion.nombre }">
+          <RouterLink v-for="opcion in opcionesMenu(sesion.rol)" :key="opcion.nombre" class="enlace-menu" :class="{ 'router-link-active': opcion.nombre === 'pedidos' && (route.name === 'pedido' || route.name === 'pedido-nuevo') }" :data-modulo="opcion.nombre" :to="{ name: opcion.nombre }">
             <i :class="opcion.icono" aria-hidden="true" />{{ opcion.etiqueta }}
           </RouterLink>
         </nav>
@@ -59,7 +59,7 @@ async function cerrarSesion(): Promise<void> {
     </div>
     <Drawer v-model:visible="menuAbierto" header="Panadería San Carlos" class="cajon-menu">
       <nav aria-label="Módulos">
-        <RouterLink v-for="opcion in opcionesMenu(sesion.rol)" :key="opcion.nombre" class="enlace-menu" :class="{ 'router-link-active': opcion.nombre === 'pedidos' && route.name === 'pedido' }" :data-modulo="opcion.nombre" :to="{ name: opcion.nombre }" @click="menuAbierto = false">
+        <RouterLink v-for="opcion in opcionesMenu(sesion.rol)" :key="opcion.nombre" class="enlace-menu" :class="{ 'router-link-active': opcion.nombre === 'pedidos' && (route.name === 'pedido' || route.name === 'pedido-nuevo') }" :data-modulo="opcion.nombre" :to="{ name: opcion.nombre }" @click="menuAbierto = false">
           <i :class="opcion.icono" aria-hidden="true" />{{ opcion.etiqueta }}
         </RouterLink>
       </nav>

@@ -51,9 +51,16 @@ export interface Sucursal { idSucursal: number; nombre: string }
 export interface Producto {
   idProducto: number
   nombre: string
+  nombreTipoProducto: string
   abreviaturaUnidadMedida: string
   nombreUnidadMedida: string
   estado: string
+}
+export interface SolicitudPedido {
+  idSucursal: number
+  fechaEntrega: string
+  observacion: string | null
+  detalles: { idProducto: number; cantidad: number }[]
 }
 export interface FiltrosApi {
   estado?: Estado
@@ -72,3 +79,6 @@ export async function obtenerDespacho(id: number): Promise<Despacho | null> {
 }
 export function listarSucursales(): Promise<Sucursal[]> { return api('sucursales') }
 export function listarProductos(): Promise<Producto[]> { return api('productos') }
+export function crearPedido(solicitud: SolicitudPedido): Promise<{ idPedido: number }> {
+  return api('pedidos', { metodo: 'POST', cuerpo: solicitud, avisar: true })
+}

@@ -18,7 +18,7 @@ vi.mock('vue-router', async (original) => ({
 const vacia = { items: [], total: 0, pagina: 1, tamano: 20 }
 const montajes: Array<{ unmount: () => void }> = []
 function montar() {
-  const wrapper = mount(PedidosView, { global: { plugins: [PrimeVue], stubs: { RouterLink: true } } })
+  const wrapper = mount(PedidosView, { global: { plugins: [PrimeVue], stubs: { RouterLink: { template: '<a><slot /></a>' } } } })
   montajes.push(wrapper)
   return wrapper
 }
@@ -35,6 +35,18 @@ beforeEach(() => {
 })
 
 describe('PedidosView', () => {
+  it.each(['ADMINISTRADOR', 'SUCURSAL'])('muestra Nuevo pedido para %s', async (rol) => {
+    sesion.rol = rol
+    const wrapper = montar()
+    await flushPromises()
+    expect(wrapper.text()).toContain('Nuevo pedido')
+  })
+
+  it('oculta Nuevo pedido para gerente', async () => {
+    const wrapper = montar()
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Nuevo pedido')
+  })
   it('consulta desde hoy con página 1 y muestra la salida vacía de inicio', async () => {
     const wrapper = montar()
     await flushPromises()

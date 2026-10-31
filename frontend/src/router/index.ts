@@ -8,6 +8,7 @@ import CambiarClaveView from '../views/CambiarClaveView.vue'
 import PendienteView from '../views/PendienteView.vue'
 import PedidosView from '../views/PedidosView.vue'
 import PedidoDetalleView from '../views/PedidoDetalleView.vue'
+import NuevoPedidoView from '../views/NuevoPedidoView.vue'
 import SinPermisoView from '../views/SinPermisoView.vue'
 import { decidirNavegacion } from './guardia'
 import { menu } from './menu'
@@ -24,6 +25,8 @@ const router = createRouter({
           path: opcion.nombre, name: opcion.nombre, component: opcion.nombre === 'pedidos' ? PedidosView : PendienteView,
           meta: { titulo: opcion.etiqueta, roles: opcion.roles },
         })),
+        { path: 'pedidos/nuevo', name: 'pedido-nuevo', component: NuevoPedidoView,
+          meta: { titulo: 'Nuevo pedido', roles: ['ADMINISTRADOR', 'SUCURSAL'] } },
         { path: 'pedidos/:id(\\d+)', name: 'pedido', component: PedidoDetalleView,
           meta: { titulo: 'Pedido', roles: menu.find((opcion) => opcion.nombre === 'pedidos')!.roles } },
         { path: 'mi-clave', name: 'mi-clave', component: CambiarClaveView, meta: { titulo: 'Cambiar contraseña', roles: ROLES } },

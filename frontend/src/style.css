@@ -11,6 +11,7 @@ button, input { font: inherit; }
 h1, h2, .logo-panaderia { font-family: var(--psc-fuente-titulos); }
 h1, h2 { line-height: 1.2; }
 .p-component { font-family: var(--psc-fuente-texto); }
+.p-select { min-height: 44px; align-items: center; }
 .p-inputtext, .p-password-input { background: var(--psc-campo); color: var(--psc-texto); border-color: var(--psc-borde); min-height: 44px; }
 .p-button { min-height: 44px; border-radius: 10px; }
 .p-button:not(.p-button-text) { background: var(--psc-acento); border-color: var(--psc-acento); color: var(--psc-sobre-acento); }
@@ -85,6 +86,10 @@ h1, h2 { line-height: 1.2; }
 .boton-menu { display: none !important; }
 .pagina-pedidos { width: min(100%, 90rem); }
 .hallazgo-pedidos { margin: .1rem 0 1.5rem; }
+.cabecera-pedidos { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: .75rem 1.5rem; }
+.cabecera-pedidos .hallazgo-pedidos { margin-bottom: 0; }
+.enlace-nuevo-pedido { display: inline-flex; align-items: center; justify-content: center; gap: .55rem; min-height: 44px; padding: .65rem 1rem; border-radius: 10px; background: var(--psc-acento); color: var(--psc-sobre-acento); text-decoration: none; font-weight: 700; }
+.enlace-nuevo-pedido:hover { filter: brightness(.9); }
 .filtros-pedidos { display: flex; flex-wrap: wrap; align-items: end; gap: .85rem 1rem; margin: 1.5rem 0 1.25rem; }
 .filtro-entrega, .filtro-select { display: grid; gap: .35rem; min-width: 0; }
 .filtro-entrega label, .filtro-select label { color: var(--psc-suave); font-size: .85rem; font-weight: 700; }
@@ -136,6 +141,33 @@ h1, h2 { line-height: 1.2; }
 .esqueleto-fila { width: 100%; height: 1.5rem; border-radius: 4px; background: var(--psc-borde); }
 .esqueleto-fila:nth-child(2) { width: 65%; }
 .esqueleto-fila:nth-child(3) { width: 80%; }
+.pagina-pedido-nuevo { width: min(100%, 68rem); }
+.pregunta-pedido { margin: .2rem 0 1.75rem; }
+.formulario-pedido { display: grid; gap: 1.5rem; }
+.bloque-pedido { min-width: 0; padding: 1.5rem; border: 1px solid var(--psc-borde); border-radius: 12px; background: var(--psc-superficie); }
+.bloque-pedido h2 { margin: 0 0 1.25rem; }
+.campos-entrega { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.valor-sucursal { display: flex; align-items: center; min-height: 44px; }
+.fecha-controles { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; min-width: 0; }
+.fecha-controles .p-datepicker { flex: 1 1 12rem; min-width: 0; }
+.fecha-controles .p-datepicker input { min-width: 0; }
+/* Hoy y Mañana van juntos: si no caben, bajan los dos. */
+.atajos-fecha { display: inline-flex; gap: .25rem; }
+.campo-observacion { margin-top: 1.25rem; }
+.campo-observacion textarea { width: 100%; }
+.contador-observacion { justify-self: end; color: var(--psc-suave); font-variant-numeric: tabular-nums; }
+.fila-producto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, 13rem) 44px; align-items: start; gap: .75rem; padding: 1rem 0; border-top: 1px solid var(--psc-borde); }
+.fila-producto:first-of-type { border-top: 0; }
+.fila-producto .p-select, .fila-producto .p-inputnumber { min-width: 0; width: 100%; }
+.fila-producto .p-inputnumber-input { width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
+.cantidad-control { display: flex; align-items: center; gap: .4rem; min-width: 0; }
+.unidad-cantidad { min-width: 1.5rem; }
+.quitar-linea { margin-top: 1.75rem; }
+.agregar-producto { margin-top: .25rem; }
+.acciones-pedido { display: grid; justify-items: start; gap: .4rem; }
+.resumen-pedido { min-height: 1.5rem; margin: 0; font-variant-numeric: tabular-nums; }
+.acciones-pedido > div { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.cancelar-pedido { display: inline-flex; align-items: center; min-height: 44px; padding: .6rem .75rem; text-underline-offset: .2rem; }
 @media (max-width: 767px) {
   .barra-superior { flex-wrap: wrap; padding: .6rem 1rem; }
   .boton-menu { display: inline-flex !important; }
@@ -151,6 +183,7 @@ h1, h2 { line-height: 1.2; }
   .filtro-select { flex: 1 1 10rem; }
   .filtro-select .p-select { width: 100%; min-width: 0; }
   .datos-pedido { grid-template-columns: 1fr; }
+  .campos-entrega { grid-template-columns: 1fr; }
 }
 @media (max-width: 420px) {
   .barra-superior .logo-panaderia { font-size: 1rem; }
@@ -160,4 +193,9 @@ h1, h2 { line-height: 1.2; }
   .saludo { align-items: flex-start; }
   .saludo .ilustracion-pan { width: 38%; }
   .clave-card { padding: 1.5rem 1rem; }
+  .bloque-pedido { padding: 1.25rem 1rem; }
+  .fila-producto { grid-template-columns: minmax(0, 1fr) 44px; }
+  .producto-campo { grid-column: 1 / -1; }
+  .cantidad-campo { grid-column: 1; }
+  .quitar-linea { grid-column: 2; grid-row: 2; }
 }

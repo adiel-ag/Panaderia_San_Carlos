@@ -1,10 +1,12 @@
 <template>
   <RouterView />
   <Toast />
+  <ConfirmDialog />
 </template>
 
 <script setup lang="ts">
 import Toast from 'primevue/toast'
+import ConfirmDialog from 'primevue/confirmdialog'
 import { useToast } from 'primevue/usetoast'
 import { RouterView } from 'vue-router'
 import { configurarCliente } from './api/cliente'

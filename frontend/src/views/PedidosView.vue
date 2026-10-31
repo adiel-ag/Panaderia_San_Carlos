@@ -109,8 +109,10 @@ watch(esSucursal, (oculta) => { if (!oculta) void listarSucursales().then((items
 
 <template>
   <section class="pagina pagina-pedidos">
-    <h1>Pedidos</h1>
-    <p v-if="resumenHoy" class="subtitulo hallazgo-pedidos">{{ resumenHoy }}</p>
+    <div class="cabecera-pedidos">
+      <div><h1>Pedidos</h1><p v-if="resumenHoy" class="subtitulo hallazgo-pedidos">{{ resumenHoy }}</p></div>
+      <RouterLink v-if="sesion.rol === 'ADMINISTRADOR' || sesion.rol === 'SUCURSAL'" :to="{ name: 'pedido-nuevo', query: { volver: route.fullPath } }" class="p-button enlace-nuevo-pedido"><i class="pi pi-plus" aria-hidden="true" />Nuevo pedido</RouterLink>
+    </div>
     <div class="filtros-pedidos" aria-label="Filtros de pedidos">
       <div class="filtro-entrega">
         <label>Entrega</label>

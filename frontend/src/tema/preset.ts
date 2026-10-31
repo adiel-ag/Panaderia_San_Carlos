@@ -11,7 +11,7 @@ export const presetCorteza = definePreset(Aura, {
     },
     colorScheme: {
       light: {
-        formField: { background: '#FFFFFF', color: '#3A2417', borderColor: '#E3D2B8' },
+        formField: { background: '#FFFFFF', color: '#3A2417', borderColor: '#E3D2B8', placeholderColor: '#6E5443' },
         primary: { color: '#9A4A1C', contrastColor: '#FFF8EE', hoverColor: '#7A3812', activeColor: '#5C2B12' },
         text: { color: '#3A2417', hoverColor: '#3A2417', mutedColor: '#6E5443', hoverMutedColor: '#5C4030' },
         surface: {
@@ -21,7 +21,7 @@ export const presetCorteza = definePreset(Aura, {
         },
       },
       dark: {
-        formField: { background: '#1F1611', color: '#F4E6D2', borderColor: '#43322A' },
+        formField: { background: '#1F1611', color: '#F4E6D2', borderColor: '#43322A', placeholderColor: '#C9B39B' },
         primary: { color: '#E39A55', contrastColor: '#26150A', hoverColor: '#F2B877', activeColor: '#F4D49A' },
         text: { color: '#F4E6D2', hoverColor: '#F4E6D2', mutedColor: '#C9B39B', hoverMutedColor: '#E7D6BF' },
         surface: {

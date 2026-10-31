@@ -29,4 +29,11 @@ describe('rutas', () => {
     expect(rutas.find((ruta) => ruta.name === 'pedido')?.meta.roles).toEqual(menu.find((opcion) => opcion.nombre === 'pedidos')?.roles)
     expect(rutas.find((ruta) => ruta.name === 'pedido')?.path).toBe('/pedidos/:id(\\d+)')
   })
+
+  it('registra nuevo pedido solo para administrador y sucursal', () => {
+    const ruta = router.resolve('/pedidos/nuevo')
+    expect(ruta.name).toBe('pedido-nuevo')
+    expect(ruta.meta.roles).toEqual(['ADMINISTRADOR', 'SUCURSAL'])
+    expect(ruta.meta.titulo).toBe('Nuevo pedido')
+  })
 })
