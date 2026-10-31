@@ -3,6 +3,7 @@ import router from './index'
 import { menu } from './menu'
 import DespachoView from '../views/DespachoView.vue'
 import InventarioView from '../views/InventarioView.vue'
+import UsuariosView from '../views/UsuariosView.vue'
 
 describe('rutas', () => {
   it('incluye la pagina de inicio', () => {
@@ -54,6 +55,14 @@ describe('rutas', () => {
     expect(ruta?.components?.default).toBe(InventarioView)
     expect(ruta?.meta.roles).toEqual(['ADMINISTRADOR', 'GERENTE', 'PRODUCCION', 'BODEGA', 'DESPACHO'])
     expect(ruta?.meta.titulo).toBe('Inventario')
+  })
+
+  it('muestra Usuarios con su pantalla solo para administrador', () => {
+    const ruta = router.getRoutes().find((item) => item.name === 'usuarios')
+    expect(ruta?.path).toBe('/usuarios')
+    expect(ruta?.components?.default).toBe(UsuariosView)
+    expect(ruta?.meta.roles).toEqual(['ADMINISTRADOR'])
+    expect(ruta?.meta.titulo).toBe('Usuarios')
   })
 
   it('registra nuevo pedido solo para administrador y sucursal', () => {

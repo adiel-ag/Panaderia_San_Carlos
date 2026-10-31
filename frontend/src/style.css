@@ -210,7 +210,7 @@ h1, h2 { line-height: 1.2; }
 .control-busqueda .borrar-busqueda { position: absolute; right: 0; width: 44px; height: 44px; color: var(--psc-suave); }
 .filtro-bajo-minimo { display: flex; align-items: center; gap: .5rem; min-height: 44px; }
 .filtro-bajo-minimo label { cursor: pointer; }
-.estado-inventario { display: inline-flex; align-items: center; width: max-content; padding: .25rem .65rem; border-radius: 999px; font-size: .83rem; font-weight: 700; line-height: 1.3; white-space: nowrap; }
+.estado-inventario, .estado-usuario { display: inline-flex; align-items: center; width: max-content; padding: .25rem .65rem; border-radius: 999px; font-size: .83rem; font-weight: 700; line-height: 1.3; white-space: nowrap; }
 .estado-inventario--bajo { background: var(--psc-estado-produccion-fondo); color: var(--psc-estado-produccion-texto); }
 .estado-inventario--sin { background: var(--psc-estado-cancelado-fondo); color: var(--psc-estado-cancelado-texto); }
 .acciones-inventario { display: flex; gap: .4rem; }
@@ -220,6 +220,20 @@ h1, h2 { line-height: 1.2; }
 .quedara-movimiento { min-height: 1.5rem; color: var(--psc-suave); }
 .quedara-movimiento--excede { color: var(--psc-error); }
 .dialogo-movimiento .p-inputnumber-input { text-align: right; font-variant-numeric: tabular-nums; }
+/* Usuarios: la tabla se desplaza dentro de su caja en el celular. */
+.tabla-usuarios .p-datatable-table { min-width: 56rem; }
+.tabla-usuarios .p-datatable-tbody > tr > td { vertical-align: middle; }
+.nombre-usuario, .username-usuario { display: block; }
+.username-usuario { font-size: .85rem; }
+.estados-usuario { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .4rem; }
+.estado-usuario--activo { background: var(--psc-estado-listo-fondo); color: var(--psc-estado-listo-texto); }
+.estado-usuario--inactivo { background: var(--psc-estado-cancelado-fondo); color: var(--psc-estado-cancelado-texto); }
+.estado-usuario--bloqueado { background: var(--psc-estado-produccion-fondo); color: var(--psc-estado-produccion-texto); }
+.sin-clave { color: var(--psc-error); font-size: .78rem; font-weight: 700; }
+.opcion-rol { display: grid; gap: .1rem; min-width: 0; white-space: normal; }
+.opcion-rol small { font-size: .8rem; }
+.valor-username { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.pagina-usuarios h1:focus { outline: none; }
 @media (max-width: 767px) {
   .barra-superior { flex-wrap: wrap; padding: .6rem 1rem; }
   .boton-menu { display: inline-flex !important; }

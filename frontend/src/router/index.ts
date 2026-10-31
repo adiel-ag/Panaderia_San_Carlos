@@ -14,13 +14,14 @@ import ProduccionesView from '../views/ProduccionesView.vue'
 import ProduccionDetalleView from '../views/ProduccionDetalleView.vue'
 import DespachoView from '../views/DespachoView.vue'
 import InventarioView from '../views/InventarioView.vue'
+import UsuariosView from '../views/UsuariosView.vue'
 import SinPermisoView from '../views/SinPermisoView.vue'
 import { decidirNavegacion } from './guardia'
 import { menu, type OpcionMenu } from './menu'
 import './meta'
 
 // Los módulos sin pantalla propia muestran la página pendiente.
-const vistas: Partial<Record<OpcionMenu['nombre'], Component>> = { pedidos: PedidosView, produccion: ProduccionesView, inventario: InventarioView, despacho: DespachoView }
+const vistas: Partial<Record<OpcionMenu['nombre'], Component>> = { pedidos: PedidosView, produccion: ProduccionesView, inventario: InventarioView, despacho: DespachoView, usuarios: UsuariosView }
 
 const router = createRouter({
   history: createWebHashHistory(),

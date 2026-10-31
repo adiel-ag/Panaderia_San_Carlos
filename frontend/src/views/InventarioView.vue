@@ -154,6 +154,10 @@ async function confirmar(): Promise<void> {
   try {
     const resultado = await registrarMovimiento(tipo, item.idProducto, cantidad.value, observacion.value.trim() || null)
     dialogoVisible.value = false
+    // La existencia que devuelve el servidor se aplica ya: si la recarga falla, la fila no queda vieja.
+    items.value = items.value.map((fila) => fila.idProducto === item.idProducto
+      ? { ...fila, existencia: resultado.existencia, bajoMinimo: resultado.existencia < fila.stockMinimo }
+      : fila)
     toast.add({
       severity: 'success', life: 5000,
       summary: `${tipo === 'entrada' ? 'Entrada registrada' : 'Salida registrada'} · existencia: ${formatearCantidad(resultado.existencia, unidad(item))}`,

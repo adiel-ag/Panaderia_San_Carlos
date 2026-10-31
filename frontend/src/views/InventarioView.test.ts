@@ -205,6 +205,22 @@ describe('InventarioView', () => {
     expect(document.activeElement).toBe(wrapper.find('[aria-label="Registrar entrada de Harina"]').element)
   })
 
+  it('si la recarga falla, la fila muestra la existencia que devolvió el servidor', async () => {
+    responder({ ...vacia, total: 2, items: [harina, azucar] }, 1)
+    const wrapper = await montar()
+    await abrir(wrapper, 'salida', 'Harina')
+    await escribirCantidad(wrapper, 20)
+    api.registrarMovimiento.mockResolvedValue({ idProducto: 1, existencia: 5.5 })
+    api.listarExistencias.mockRejectedValue(new ApiError(503, 'NO_DISPONIBLE', 'Base no disponible'))
+    await wrapper.find('.dialogo-stub form').trigger('submit')
+    await flushPromises()
+    const filaHarina = wrapper.findAll('tbody tr').find((fila) => fila.text().includes('Harina'))!
+    expect(filaHarina.text()).toContain('5.5kg')
+    // 5.5 < 10: pasa a estar bajo el mínimo sin esperar la recarga.
+    expect(filaHarina.text()).toContain('Bajo el mínimo')
+    expect(wrapper.find('tbody').text()).toContain('Azúcar')
+  })
+
   it('una entrada sin inventario parte de cero', async () => {
     responder({ ...vacia, total: 1, items: [levadura] })
     api.registrarMovimiento.mockResolvedValue({ idProducto: 3, existencia: 2 })
