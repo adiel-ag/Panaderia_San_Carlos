@@ -30,12 +30,29 @@ export interface ProduccionDetalle {
   cantidadPlanificada: number
   cantidadProducida: number
 }
+export interface InsumoProduccion {
+  idInsumo: number
+  nombre: string
+  unidad: string
+  requerido: number
+  disponible: number
+  faltante: number
+  sinInventario: boolean
+}
+export interface InsumosProduccion {
+  idProduccion: number
+  estado: EstadoProduccion
+  insumos: InsumoProduccion[]
+  productosSinReceta: { idProducto: number; nombre: string }[]
+  suficiente: boolean
+}
 
 export function listarProducciones(estado: EstadoProduccion | null, pagina = 1, tamano = 20, avisar = true): Promise<Pagina<ProduccionResumen>> {
   return api('producciones', { consulta: { pagina, tamano, estado }, avisar })
 }
 export function obtenerProduccion(id: number): Promise<ProduccionConPedidos> { return api(`producciones/${id}`) }
 export function obtenerDetalleProduccion(id: number): Promise<ProduccionDetalle[]> { return api(`producciones/${id}/detalle`) }
+export function obtenerInsumos(id: number): Promise<InsumosProduccion> { return api(`producciones/${id}/insumos`, { avisar: false }) }
 export function crearProduccion(observacion: string | null): Promise<{ idProduccion: number }> {
   return api('producciones', { metodo: 'POST', cuerpo: { observacion } })
 }

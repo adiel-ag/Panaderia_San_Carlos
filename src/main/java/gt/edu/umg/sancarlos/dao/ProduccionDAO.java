@@ -6,6 +6,7 @@ import gt.edu.umg.sancarlos.exception.ProduccionNoEncontradaException;
 import gt.edu.umg.sancarlos.model.ProduccionDetalle;
 import gt.edu.umg.sancarlos.dto.Pagina;
 import gt.edu.umg.sancarlos.dto.ProduccionResumenDTO;
+import java.math.BigDecimal;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -18,6 +19,80 @@ import java.util.Optional;
 
 /** Acceso a los procedimientos de PKG_PRODUCCION y lectura de su plan. */
 public class ProduccionDAO {
+
+    public record FilaInsumo(long idProducto, String nombreProducto, int recetasVigentes,
+            Long idInsumo, String nombreInsumo, String unidad, BigDecimal requerido,
+            BigDecimal disponible, boolean sinInventario) { }
+
+    private static final String SQL_INSUMOS_PLAN = """
+            WITH cantidades AS (
+                SELECT d.id_producto, SUM(d.cantidad) AS cantidad
+                  FROM PRODUCCION_PEDIDO pp
+                  JOIN PEDIDO_DETALLE d ON d.id_pedido = pp.id_pedido
+                 WHERE pp.id_produccion = ?
+                 GROUP BY d.id_producto
+            ), vigentes AS (
+                SELECT r.id_producto, COUNT(*) AS recetas_vigentes,
+                       MIN(r.id_receta) AS id_receta
+                  FROM RECETA r
+                 WHERE """ + RecetaDAO.vigente("r") + """
+                 GROUP BY r.id_producto
+            )
+            SELECT c.id_producto, p.nombre AS nombre_producto,
+                   NVL(v.recetas_vigentes, 0) AS recetas_vigentes,
+                   d.id_insumo, ins.nombre AS nombre_insumo,
+                   um.abreviatura AS unidad,
+                   c.cantidad * d.cantidad / r.rendimiento AS requerido,
+                   i.cantidad_actual AS disponible, i.id_producto AS inventario_id
+              FROM cantidades c
+              JOIN PRODUCTO p ON p.id_producto = c.id_producto
+              LEFT JOIN vigentes v ON v.id_producto = c.id_producto
+              LEFT JOIN RECETA r ON r.id_receta = v.id_receta AND v.recetas_vigentes = 1
+              LEFT JOIN RECETA_DETALLE d ON d.id_receta = r.id_receta
+              LEFT JOIN PRODUCTO ins ON ins.id_producto = d.id_insumo
+              LEFT JOIN UNIDAD_MEDIDA um ON um.id_unidad = ins.id_unidad
+              LEFT JOIN INVENTARIO i ON i.id_producto = d.id_insumo
+             ORDER BY p.nombre, ins.nombre
+            """;
+    private static final String SQL_INSUMOS_DETALLE = """
+            SELECT pd.id_producto, p.nombre AS nombre_producto, 1 AS recetas_vigentes,
+                   d.id_insumo, ins.nombre AS nombre_insumo,
+                   um.abreviatura AS unidad,
+                   (CASE WHEN pd.cantidad_producida > 0 THEN pd.cantidad_producida
+                         ELSE pd.cantidad_planificada END) * d.cantidad / r.rendimiento AS requerido,
+                   i.cantidad_actual AS disponible, i.id_producto AS inventario_id
+              FROM PRODUCCION_DETALLE pd
+              JOIN PRODUCTO p ON p.id_producto = pd.id_producto
+              JOIN RECETA r ON r.id_receta = pd.id_receta
+              LEFT JOIN RECETA_DETALLE d ON d.id_receta = r.id_receta
+              LEFT JOIN PRODUCTO ins ON ins.id_producto = d.id_insumo
+              LEFT JOIN UNIDAD_MEDIDA um ON um.id_unidad = ins.id_unidad
+              LEFT JOIN INVENTARIO i ON i.id_producto = d.id_insumo
+             WHERE pd.id_produccion = ?
+             ORDER BY p.nombre, ins.nombre
+            """;
+
+    public List<FilaInsumo> consultarInsumos(Connection connection, long idProduccion,
+            boolean planificada) throws SQLException {
+        List<FilaInsumo> filas = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(
+                planificada ? SQL_INSUMOS_PLAN : SQL_INSUMOS_DETALLE)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idProduccion);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    long insumo = rows.getLong("id_insumo");
+                    Long idInsumo = rows.wasNull() ? null : insumo;
+                    filas.add(new FilaInsumo(rows.getLong("id_producto"),
+                            rows.getString("nombre_producto"), rows.getInt("recetas_vigentes"),
+                            idInsumo, rows.getString("nombre_insumo"), rows.getString("unidad"),
+                            rows.getBigDecimal("requerido"), rows.getBigDecimal("disponible"),
+                            rows.getObject("inventario_id") == null));
+                }
+            }
+        }
+        return filas;
+    }
 
     private static final String SP_CREAR =
             "{ call PKG_PRODUCCION.SP_CREAR(?, ?, ?) }";

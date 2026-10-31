@@ -6,6 +6,8 @@ import gt.edu.umg.sancarlos.dao.PedidoDAO;
 import gt.edu.umg.sancarlos.dto.Pagina;
 import gt.edu.umg.sancarlos.dto.ProduccionResumenDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionConPedidosDTO;
+import gt.edu.umg.sancarlos.dto.InsumosProduccionDTO;
+import gt.edu.umg.sancarlos.dao.ProduccionDAO.FilaInsumo;
 import gt.edu.umg.sancarlos.resource.Paginacion;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.ProduccionConflictoException;
@@ -15,6 +17,11 @@ import gt.edu.umg.sancarlos.model.ProduccionDetalle;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 
@@ -72,6 +79,67 @@ public class ProduccionService {
                     pedidoDAO.listarDeProduccion(connection, idProduccion));
         } catch (SQLException exception) {
             throw new DataAccessException("No fue posible consultar la producción", exception);
+        }
+    }
+
+    public InsumosProduccionDTO consultarInsumos(long idProduccion) {
+        validarId(idProduccion, "producción");
+        try (Connection connection = conexiones.abrir()) {
+            String estado = produccionDAO.buscarResumenPorId(connection, idProduccion)
+                    .orElseThrow(() -> new ProduccionNoEncontradaException(
+                            "No existe una producción con ID " + idProduccion, null)).estado();
+            if ("CANCELADA".equals(estado)) {
+                return new InsumosProduccionDTO(idProduccion, estado, List.of(), List.of(), true);
+            }
+            List<FilaInsumo> filas = produccionDAO.consultarInsumos(connection, idProduccion,
+                    "PLANIFICADA".equals(estado));
+            Map<Long, Acumulado> insumos = new LinkedHashMap<>();
+            Map<Long, InsumosProduccionDTO.ProductoSinReceta> sinReceta = new LinkedHashMap<>();
+            for (FilaInsumo fila : filas) {
+                if ("PLANIFICADA".equals(estado) && fila.recetasVigentes() != 1) {
+                    sinReceta.putIfAbsent(fila.idProducto(),
+                            new InsumosProduccionDTO.ProductoSinReceta(
+                                    fila.idProducto(), fila.nombreProducto()));
+                }
+                if (fila.idInsumo() != null) {
+                    Acumulado acumulado = insumos.computeIfAbsent(fila.idInsumo(),
+                            clave -> new Acumulado(fila));
+                    acumulado.requerido = acumulado.requerido.add(fila.requerido());
+                }
+            }
+            List<InsumosProduccionDTO.Insumo> resultado = new ArrayList<>();
+            for (Map.Entry<Long, Acumulado> entrada : insumos.entrySet()) {
+                Acumulado dato = entrada.getValue();
+                BigDecimal requerido = dato.requerido.setScale(3, RoundingMode.HALF_UP);
+                BigDecimal disponible = dato.disponible == null ? BigDecimal.ZERO : dato.disponible;
+                BigDecimal faltante = requerido.subtract(disponible).max(BigDecimal.ZERO);
+                resultado.add(new InsumosProduccionDTO.Insumo(entrada.getKey(), dato.nombre,
+                        dato.unidad, requerido, disponible, faltante, dato.sinInventario));
+            }
+            resultado.sort(Comparator.comparing(InsumosProduccionDTO.Insumo::nombre)
+                    .thenComparingLong(InsumosProduccionDTO.Insumo::idInsumo));
+            List<InsumosProduccionDTO.ProductoSinReceta> productosSinReceta = new ArrayList<>(sinReceta.values());
+            productosSinReceta.sort(Comparator.comparing(InsumosProduccionDTO.ProductoSinReceta::nombre));
+            return new InsumosProduccionDTO(idProduccion, estado, resultado, productosSinReceta,
+                    productosSinReceta.isEmpty() && resultado.stream()
+                            .noneMatch(item -> item.faltante().signum() > 0));
+        } catch (SQLException exception) {
+            throw new DataAccessException("No fue posible consultar los insumos de producción", exception);
+        }
+    }
+
+    private static final class Acumulado {
+        private final String nombre;
+        private final String unidad;
+        private final BigDecimal disponible;
+        private final boolean sinInventario;
+        private BigDecimal requerido = BigDecimal.ZERO;
+
+        private Acumulado(FilaInsumo fila) {
+            nombre = fila.nombreInsumo();
+            unidad = fila.unidad();
+            disponible = fila.disponible();
+            sinInventario = fila.sinInventario();
         }
     }
 

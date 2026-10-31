@@ -114,7 +114,7 @@ public class RecetaDAO {
      * Misma condicion que PKG_RECETA.FN_RECETA_ACTIVA. Lleva espacios a ambos
      * lados porque el bloque de texto previo pierde su espacio final.
      */
-    private static String vigente(String alias) {
+    public static String vigente(String alias) {
         return " (" + alias + ".estado = 'ACTIVA' AND " + alias + ".fecha_inicio <= SYSDATE AND ("
                 + alias + ".fecha_fin IS NULL OR " + alias + ".fecha_fin >= TRUNC(SYSDATE))) ";
     }

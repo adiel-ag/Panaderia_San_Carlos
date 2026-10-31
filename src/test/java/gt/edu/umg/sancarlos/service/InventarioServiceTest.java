@@ -17,6 +17,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /** Pruebas sin Oracle: validaciones previas y traducción de códigos de PKG_INVENTARIO. */
 class InventarioServiceTest {
 
+    @Test
+    void historialValidaParametrosAntesDeAbrirConexion() {
+        InventarioService service = new InventarioService();
+        assertThrows(IllegalArgumentException.class, () -> service.listarMovimientos(0, 1, 20));
+        assertThrows(IllegalArgumentException.class, () -> service.listarMovimientos(1, 0, 20));
+        assertThrows(IllegalArgumentException.class, () -> service.listarMovimientos(1, 1, 101));
+    }
+
     private final InventarioService service = new InventarioService();
 
     @Test

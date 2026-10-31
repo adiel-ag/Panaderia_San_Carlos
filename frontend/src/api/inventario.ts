@@ -21,9 +21,22 @@ export interface FiltrosInventarioApi {
   bajoMinimo?: boolean
 }
 export interface ResultadoMovimiento { idProducto: number; existencia: number }
+export interface MovimientoInventario {
+  idMovimiento: number
+  fecha: string
+  tipo: 'ENTRADA' | 'SALIDA' | 'AJUSTE_POS' | 'AJUSTE_NEG'
+  cantidad: number
+  origen: 'INICIAL' | 'PRODUCCION' | 'DESPACHO' | 'AJUSTE' | 'OTRO'
+  idReferencia: number | null
+  usuario: string | null
+  observacion: string | null
+}
 
 export function listarExistencias(filtros: FiltrosInventarioApi, pagina = 1, tamano = 20, avisar = true): Promise<Pagina<ExistenciaResumen>> {
   return api('inventario/existencias', { consulta: { pagina, tamano, ...filtros }, avisar })
+}
+export function listarMovimientos(idProducto: number, pagina = 1, tamano = 20): Promise<Pagina<MovimientoInventario>> {
+  return api(`inventario/productos/${idProducto}/movimientos`, { consulta: { pagina, tamano }, avisar: false })
 }
 export function registrarMovimiento(tipo: TipoMovimiento, idProducto: number, cantidad: number, observacion: string | null): Promise<ResultadoMovimiento> {
   return api(`inventario/productos/${idProducto}/${tipo === 'entrada' ? 'entradas' : 'salidas'}`, {

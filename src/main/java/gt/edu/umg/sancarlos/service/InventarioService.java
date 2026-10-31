@@ -6,6 +6,7 @@ import gt.edu.umg.sancarlos.dao.ProductoDAO;
 import gt.edu.umg.sancarlos.dto.ExistenciaDTO;
 import gt.edu.umg.sancarlos.dto.ExistenciaResumenDTO;
 import gt.edu.umg.sancarlos.dto.Pagina;
+import gt.edu.umg.sancarlos.dto.MovimientoDTO;
 import gt.edu.umg.sancarlos.resource.Paginacion;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.InventarioConflictoException;
@@ -74,6 +75,19 @@ public class InventarioService {
                     inventarioDAO.consultarExistencia(connection, idProducto));
         } catch (SQLException exception) {
             throw new DataAccessException("No fue posible consultar la existencia", exception);
+        }
+    }
+
+    public Pagina<MovimientoDTO> listarMovimientos(long idProducto, int pagina, int tamano) {
+        validarId(idProducto, "producto");
+        if (!Paginacion.valida(pagina, tamano)) {
+            throw new IllegalArgumentException("La página o el tamaño no son válidos.");
+        }
+        try (Connection connection = ConnectionFactory.getConnection()) {
+            validarProductoExiste(connection, idProducto);
+            return inventarioDAO.listarMovimientos(connection, idProducto, pagina, tamano);
+        } catch (SQLException exception) {
+            throw new DataAccessException("No fue posible listar los movimientos", exception);
         }
     }
 

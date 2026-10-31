@@ -12,8 +12,8 @@ import { ApiError } from '../api/cliente'
 import { formatearFecha, formatearFechaHora } from '../api/fechas'
 import { listarPedidos, listarProductos, type PedidoResumen, type Producto } from '../api/pedidos'
 import {
-  asociarPedido, cancelarProduccion, etiquetaEstadoProduccion, finalizarProduccion, generarPlan, obtenerDetalleProduccion, obtenerProduccion, registrarProducido,
-  type EstadoProduccion as Estado, type ProduccionConPedidos, type ProduccionDetalle,
+  asociarPedido, cancelarProduccion, etiquetaEstadoProduccion, finalizarProduccion, generarPlan, obtenerDetalleProduccion, obtenerInsumos, obtenerProduccion, registrarProducido,
+  type EstadoProduccion as Estado, type InsumosProduccion, type ProduccionConPedidos, type ProduccionDetalle,
 } from '../api/producciones'
 import { useSesionStore } from '../stores/sesion'
 import EstadoPedido from '../components/EstadoPedido.vue'
@@ -33,6 +33,9 @@ const volver = computed(() => {
 const ciclo: Estado[] = ['PLANIFICADA', 'EN_PROCESO', 'FINALIZADA']
 const produccion = ref<ProduccionConPedidos | null>(null)
 const detalle = ref<ProduccionDetalle[]>([])
+const insumos = ref<InsumosProduccion | null>(null)
+const cargandoInsumos = ref(false)
+const errorInsumos = ref(false)
 const productos = ref<Producto[]>([])
 const cargando = ref(true)
 const error = ref<'no-encontrado' | 'general' | null>(null)
@@ -54,6 +57,8 @@ const estado = computed(() => produccion.value?.estado ?? null)
 const puedeCancelar = computed(() => puedeCambiar.value && estado.value === 'PLANIFICADA')
 const editable = computed(() => puedeCambiar.value && estado.value === 'EN_PROCESO')
 const conPlan = computed(() => estado.value === 'EN_PROCESO' || estado.value === 'FINALIZADA')
+const mostrarInsumos = computed(() => estado.value === 'EN_PROCESO' ||
+  (estado.value === 'PLANIFICADA' && !!produccion.value?.pedidos.length))
 const filas = computed(() => filasPlan(detalle.value, productos.value))
 const completos = computed(() => filas.value.filter((fila) => fila.completo).length)
 const listoParaFinalizar = computed(() => puedeFinalizar(filas.value))
@@ -83,6 +88,16 @@ async function cargarPlan(actual: number): Promise<void> {
     prepararBorradores(items)
   } catch { if (actual === version) errorPlan.value = true }
 }
+async function cargarInsumos(actual = version): Promise<void> {
+  cargandoInsumos.value = true
+  errorInsumos.value = false
+  try {
+    const resultado = await obtenerInsumos(id.value)
+    if (actual === version) insumos.value = resultado
+  } catch {
+    if (actual === version) { insumos.value = null; errorInsumos.value = true }
+  } finally { if (actual === version) cargandoInsumos.value = false }
+}
 // Al recargar tras una acción se conservan los datos a la vista.
 async function cargar(silencioso = false): Promise<void> {
   const actual = ++version
@@ -98,6 +113,10 @@ async function cargar(silencioso = false): Promise<void> {
     produccion.value = resultado
     if (resultado.estado === 'EN_PROCESO' || resultado.estado === 'FINALIZADA') await cargarPlan(actual)
     else detalle.value = []
+    if (actual === version) {
+      if (resultado.estado === 'EN_PROCESO' || (resultado.estado === 'PLANIFICADA' && resultado.pedidos.length)) await cargarInsumos(actual)
+      else insumos.value = null
+    }
   } catch (causa) {
     if (actual !== version) return
     if (causa instanceof ApiError && (causa.status === 404 || causa.status === 400)) {
@@ -164,6 +183,7 @@ async function guardarCantidad(fila: FilaPlan): Promise<void> {
     await registrarProducido(id.value, fila.idProducto, cantidad)
     if (actual !== version) return
     detalle.value = detalle.value.map((linea) => linea.idProducto === fila.idProducto ? { ...linea, cantidadProducida: cantidad } : linea)
+    await cargarInsumos(actual)
     toast.add({ severity: 'success', summary: 'Cantidad registrada', life: 4000 })
   } catch (causa) {
     if (causa instanceof ApiError && causa.status === 400) toast.add({ severity: 'warn', summary: 'Cantidad no válida', detail: causa.message, life: 5000 })
@@ -260,6 +280,31 @@ watch(id, () => { void cargar() }, { immediate: true })
           <Button label="Generar plan" :loading="accion === 'plan'" :disabled="!produccion.pedidos.length || accion !== null" @click="pedirGenerarPlan" />
           <small v-if="!produccion.pedidos.length" class="texto-suave">Agregue al menos un pedido para generar el plan.</small>
         </div>
+      </section>
+
+      <section v-if="mostrarInsumos" class="seccion-pedido seccion-insumos">
+        <h2>Insumos necesarios</h2>
+        <p v-if="cargandoInsumos" class="texto-suave" role="status">Cargando insumos…</p>
+        <div v-else-if="errorInsumos" class="aviso-unidades"><Message severity="error">No se pudieron cargar los insumos.</Message><Button label="Reintentar" text @click="cargarInsumos()" /></div>
+        <template v-else-if="insumos">
+          <Message v-if="insumos.productosSinReceta.length" severity="warn">
+            Sin receta vigente: {{ insumos.productosSinReceta.map((item) => item.nombre).join(', ') }} — no se podrá generar el plan.
+            <RouterLink :to="{ name: 'recetas' }">Ver Recetas</RouterLink>
+          </Message>
+          <Message :severity="insumos.suficiente ? 'success' : 'warn'">
+            <template v-if="insumos.suficiente">Hay insumos suficientes para esta producción.</template>
+            <template v-else>Faltan insumos: registre entradas en <RouterLink :to="{ name: 'inventario' }">Inventario</RouterLink> antes de finalizar.</template>
+          </Message>
+          <div class="tabla-detalle-contenedor"><table class="tabla-detalle tabla-celdas-fijas">
+            <thead><tr><th>Insumo</th><th class="numero">Necesario</th><th class="numero">Disponible</th><th class="numero">Faltante</th></tr></thead>
+            <tbody><tr v-for="item in insumos.insumos" :key="item.idInsumo">
+              <td>{{ item.nombre }}</td>
+              <td class="numero">{{ formatear(item.requerido) }}<span class="unidad">{{ item.unidad }}</span></td>
+              <td class="numero">{{ formatear(item.disponible) }}<span class="unidad">{{ item.unidad }}</span></td>
+              <td class="numero"><strong v-if="item.faltante > 0" class="insumo-faltante">{{ formatear(item.faltante) }}<span class="unidad">{{ item.unidad }}</span></strong><span v-else class="texto-suave">—</span></td>
+            </tr></tbody>
+          </table></div>
+        </template>
       </section>
 
       <section v-if="conPlan" class="seccion-pedido">

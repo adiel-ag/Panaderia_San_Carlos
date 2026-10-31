@@ -8,13 +8,13 @@ import ProduccionDetalleView from './ProduccionDetalleView.vue'
 import { ApiError } from '../api/cliente'
 
 const api = vi.hoisted(() => ({
-  obtenerProduccion: vi.fn(), obtenerDetalleProduccion: vi.fn(), asociarPedido: vi.fn(), generarPlan: vi.fn(),
+  obtenerProduccion: vi.fn(), obtenerDetalleProduccion: vi.fn(), obtenerInsumos: vi.fn(), asociarPedido: vi.fn(), generarPlan: vi.fn(),
   registrarProducido: vi.fn(), finalizarProduccion: vi.fn(), cancelarProduccion: vi.fn(), listarPedidos: vi.fn(), listarProductos: vi.fn(),
   toast: vi.fn(), confirmar: vi.fn(), sesion: { rol: 'PRODUCCION' },
 }))
 const route = reactive({ params: { id: '5' }, query: {} as Record<string, string> })
 vi.mock('../api/producciones', async (original) => ({ ...(await original<typeof import('../api/producciones')>()),
-  obtenerProduccion: api.obtenerProduccion, obtenerDetalleProduccion: api.obtenerDetalleProduccion, asociarPedido: api.asociarPedido,
+  obtenerProduccion: api.obtenerProduccion, obtenerDetalleProduccion: api.obtenerDetalleProduccion, obtenerInsumos: api.obtenerInsumos, asociarPedido: api.asociarPedido,
   generarPlan: api.generarPlan, registrarProducido: api.registrarProducido, finalizarProduccion: api.finalizarProduccion,
   cancelarProduccion: api.cancelarProduccion }))
 vi.mock('../api/pedidos', async (original) => ({ ...(await original<typeof import('../api/pedidos')>()),
@@ -62,6 +62,7 @@ beforeEach(() => {
   route.query = {}
   api.obtenerProduccion.mockResolvedValue(produccion('PLANIFICADA'))
   api.obtenerDetalleProduccion.mockResolvedValue(plan.map((linea) => ({ ...linea })))
+  api.obtenerInsumos.mockResolvedValue({ idProduccion: 5, estado: 'PLANIFICADA', insumos: [], productosSinReceta: [], suficiente: true })
   api.listarProductos.mockResolvedValue(productos)
   api.listarPedidos.mockResolvedValue({ items: [pedido(7), pedido(8), pedido(9)], total: 3, pagina: 1, tamano: 100 })
   api.asociarPedido.mockResolvedValue({ idProduccion: 5, mensaje: 'ok' })
@@ -72,6 +73,33 @@ beforeEach(() => {
 })
 
 describe('ProduccionDetalleView', () => {
+  it('muestra faltantes y productos sin receta con sus enlaces', async () => {
+    api.obtenerInsumos.mockResolvedValue({ idProduccion: 5, estado: 'PLANIFICADA', suficiente: false,
+      productosSinReceta: [{ idProducto: 10, nombre: 'Pastel' }],
+      insumos: [{ idInsumo: 2, nombre: 'Harina', unidad: 'KG', requerido: 4.5, disponible: 2, faltante: 2.5, sinInventario: false }] })
+    const wrapper = await montar()
+    expect(api.obtenerInsumos).toHaveBeenCalledWith(5)
+    expect(wrapper.text()).toContain('Insumos necesarios')
+    expect(wrapper.text()).toContain('Sin receta vigente: Pastel')
+    expect(wrapper.text()).toContain('Faltan insumos')
+    expect(wrapper.find('.insumo-faltante').text()).toContain('2.5')
+    expect(wrapper.text()).toContain('Recetas')
+    expect(wrapper.text()).toContain('Inventario')
+  })
+
+  it('oculta insumos sin pedidos y permite reintentar un error', async () => {
+    api.obtenerProduccion.mockResolvedValueOnce(produccion('PLANIFICADA', []))
+      .mockResolvedValueOnce(produccion('PLANIFICADA'))
+    const vacia = await montar()
+    expect(vacia.text()).not.toContain('Insumos necesarios')
+    expect(api.obtenerInsumos).not.toHaveBeenCalled()
+    api.obtenerInsumos.mockRejectedValueOnce(new Error('red'))
+    const fallida = await montar()
+    expect(fallida.text()).toContain('No se pudieron cargar los insumos.')
+    await fallida.findAll('button').find((item) => item.text() === 'Reintentar')!.trigger('click')
+    await flushPromises()
+    expect(fallida.text()).toContain('Hay insumos suficientes')
+  })
   it('muestra datos, avance y pedidos de una producción planificada', async () => {
     const wrapper = await montar()
     expect(wrapper.find('h1').text()).toBe('Producción #5')

@@ -8,6 +8,7 @@ import gt.edu.umg.sancarlos.dto.ProduccionCreadaDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionConPedidosDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionOperacionDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionResumenDTO;
+import gt.edu.umg.sancarlos.dto.InsumosProduccionDTO;
 import gt.edu.umg.sancarlos.exception.NoAutenticadoException;
 import gt.edu.umg.sancarlos.exception.ProduccionConflictoException;
 import gt.edu.umg.sancarlos.exception.ProduccionNoEncontradaException;
@@ -48,6 +49,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ProduccionResourceTest {
 
     private final ApiExceptionMapper mapper = new ApiExceptionMapper();
+
+    @Test
+    void insumosResponde200YProduccionAusente404() throws Exception {
+        Method metodo = ProduccionResource.class.getMethod("consultarInsumos", String.class);
+        assertNotNull(metodo.getAnnotation(GET.class));
+        assertEquals("{id}/insumos", metodo.getAnnotation(Path.class).value());
+        assertEquals(Set.of("ADMINISTRADOR", "GERENTE", "PRODUCCION"),
+                Set.of(metodo.getAnnotation(RolesAllowed.class).value()));
+        ProduccionResource recurso = new ProduccionResource(new ProduccionService() {
+            @Override public InsumosProduccionDTO consultarInsumos(long id) {
+                if (id == 99) throw new ProduccionNoEncontradaException("No existe", null);
+                return new InsumosProduccionDTO(id, "PLANIFICADA", List.of(), List.of(), true);
+            }
+        });
+        try (Response respuesta = recurso.consultarInsumos("5")) {
+            assertEquals(200, respuesta.getStatus());
+            assertEquals(5, assertInstanceOf(InsumosProduccionDTO.class,
+                    respuesta.getEntity()).idProduccion());
+        }
+        assertThrows(BadRequestException.class, () -> recurso.consultarInsumos("0"));
+        try (Response respuesta = mapper.toResponse(assertThrows(
+                ProduccionNoEncontradaException.class, () -> recurso.consultarInsumos("99")))) {
+            assertEquals(404, respuesta.getStatus());
+        }
+    }
 
     @Test
     void exponeRutasYMetodosHttp() throws Exception {

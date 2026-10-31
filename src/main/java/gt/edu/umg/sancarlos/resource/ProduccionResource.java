@@ -98,6 +98,13 @@ public class ProduccionResource {
         return Response.ok(produccionService.consultarDetalle(idProduccion)).build();
     }
 
+    @GET
+    @Path("{id}/insumos")
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.PRODUCCION})
+    public Response consultarInsumos(@PathParam("id") String id) {
+        return Response.ok(produccionService.consultarInsumos(parsearId(id, "producción"))).build();
+    }
+
     /** Reemplaza la cantidad producida del producto; no la acumula. */
     @PUT
     @Path("{id}/productos/{idProducto}/cantidad-producida")

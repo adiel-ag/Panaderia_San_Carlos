@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
@@ -13,7 +13,8 @@ import Dialog from 'primevue/dialog'
 import Message from 'primevue/message'
 import Textarea from 'primevue/textarea'
 import { ApiError } from '../api/cliente'
-import { listarExistencias, registrarMovimiento, type ExistenciaResumen, type TipoMovimiento, type TipoProducto } from '../api/inventario'
+import { formatearFechaHora } from '../api/fechas'
+import { listarExistencias, listarMovimientos, registrarMovimiento, type ExistenciaResumen, type MovimientoInventario, type TipoMovimiento, type TipoProducto } from '../api/inventario'
 import { useSesionStore } from '../stores/sesion'
 import { abreviaturaUnidad } from './produccion'
 import {
@@ -29,6 +30,8 @@ const sesion = useSesionStore()
 const toast = useToast()
 const filtros = computed(() => leerFiltrosInventario(route.query))
 const puedeMover = computed(() => sesion.rol === 'ADMINISTRADOR' || sesion.rol === 'BODEGA')
+const puedeVerProduccion = computed(() => ['ADMINISTRADOR', 'GERENTE', 'PRODUCCION'].includes(sesion.rol ?? ''))
+const puedeVerPedido = computed(() => ['ADMINISTRADOR', 'GERENTE', 'PRODUCCION', 'DESPACHO'].includes(sesion.rol ?? ''))
 const filtrosActivos = computed(() => !filtrosPorDefecto(filtros.value))
 const tipos = [
   { label: 'Todos', value: 'todos' }, { label: 'Insumos', value: 'INSUMO' }, { label: 'Productos finales', value: 'PRODUCTO_FINAL' },
@@ -62,6 +65,53 @@ const resultante = computed(() => cantidad.value !== null && cantidad.value > 0 
 const excede = computed(() => resultante.value !== null && resultante.value < 0)
 const verErrorCantidad = computed(() => (tocado.value || intentado.value) && errores.value.cantidad !== null)
 const nombreAccion = computed(() => tipoMovimiento.value === 'entrada' ? 'Registrar entrada' : 'Registrar salida')
+const historialVisible = ref(false)
+const productoHistorial = ref<ExistenciaResumen | null>(null)
+const movimientos = ref<MovimientoInventario[]>([])
+const totalMovimientos = ref(0)
+const paginaMovimientos = ref(1)
+const cargandoMovimientos = ref(false)
+const errorHistorial = ref(false)
+let versionHistorial = 0
+
+function etiquetaMovimiento(tipo: MovimientoInventario['tipo']): string {
+  return { ENTRADA: 'Entrada', SALIDA: 'Salida', AJUSTE_POS: 'Ajuste +', AJUSTE_NEG: 'Ajuste −' }[tipo]
+}
+function signoMovimiento(tipo: MovimientoInventario['tipo']): string {
+  return tipo === 'SALIDA' || tipo === 'AJUSTE_NEG' ? '−' : '+'
+}
+function etiquetaOrigen(item: MovimientoInventario): string {
+  if (item.origen === 'PRODUCCION') return `Producción #${item.idReferencia}`
+  if (item.origen === 'DESPACHO') return `Despacho de pedido #${item.idReferencia}`
+  return { AJUSTE: 'Ajuste', INICIAL: 'Inicial', OTRO: 'Otro' }[item.origen]
+}
+async function cargarMovimientos(): Promise<void> {
+  const producto = productoHistorial.value
+  if (!producto) return
+  const actual = ++versionHistorial
+  cargandoMovimientos.value = true
+  errorHistorial.value = false
+  try {
+    const resultado = await listarMovimientos(producto.idProducto, paginaMovimientos.value, TAMANO)
+    if (actual !== versionHistorial) return
+    movimientos.value = resultado.items
+    totalMovimientos.value = resultado.total
+  } catch {
+    if (actual === versionHistorial) { movimientos.value = []; errorHistorial.value = true }
+  } finally { if (actual === versionHistorial) cargandoMovimientos.value = false }
+}
+function abrirHistorial(item: ExistenciaResumen): void {
+  productoHistorial.value = item
+  movimientos.value = []
+  totalMovimientos.value = 0
+  paginaMovimientos.value = 1
+  historialVisible.value = true
+  void cargarMovimientos()
+}
+function cambiarPaginaMovimientos(evento: { page: number }): void {
+  paginaMovimientos.value = evento.page + 1
+  void cargarMovimientos()
+}
 
 function navegar(nuevos: FiltrosInventario): void {
   void router.replace({ name: 'inventario', query: queryFiltrosInventario(nuevos) })
@@ -234,11 +284,12 @@ onBeforeUnmount(cancelarBusqueda)
             <span v-else-if="estadoExistencia(data) === 'sin-inventario'" class="estado-inventario estado-inventario--sin">Sin inventario</span>
           </template>
         </Column>
-        <Column v-if="puedeMover" header="Movimientos" body-class="celda-accion">
+        <Column header="Movimientos" body-class="celda-accion">
           <template #body="{ data }">
             <div class="acciones-inventario">
-              <Button label="Entrada" icon="pi pi-plus" size="small" outlined :aria-label="`Registrar entrada de ${data.nombre}`" :data-movimiento="`entrada-${data.idProducto}`" @click="abrirMovimiento('entrada', data)" />
-              <span :title="sinExistencias(data) ? 'No hay existencias para registrar una salida' : undefined">
+              <Button label="Movimientos" icon="pi pi-history" text size="small" :aria-label="`Ver movimientos de ${data.nombre}`" @click="abrirHistorial(data)" />
+              <Button v-if="puedeMover" label="Entrada" icon="pi pi-plus" size="small" outlined :aria-label="`Registrar entrada de ${data.nombre}`" :data-movimiento="`entrada-${data.idProducto}`" @click="abrirMovimiento('entrada', data)" />
+              <span v-if="puedeMover" :title="sinExistencias(data) ? 'No hay existencias para registrar una salida' : undefined">
                 <Button label="Salida" icon="pi pi-minus" size="small" outlined :disabled="sinExistencias(data)" :aria-label="`Registrar salida de ${data.nombre}`" :data-movimiento="`salida-${data.idProducto}`" @click="abrirMovimiento('salida', data)" />
               </span>
             </div>
@@ -283,6 +334,22 @@ onBeforeUnmount(cancelarBusqueda)
           <Button :label="nombreAccion" type="submit" :loading="enviando" :disabled="enviando" />
         </div>
       </form>
+    </Dialog>
+    <Dialog v-model:visible="historialVisible" modal :header="`Movimientos · ${productoHistorial?.nombre ?? ''}`" class="dialogo-historial">
+      <div v-if="errorHistorial" class="aviso-unidades"><Message severity="error">No se pudieron cargar los movimientos.</Message><Button label="Reintentar" text @click="cargarMovimientos" /></div>
+      <DataTable v-else :value="movimientos" lazy paginator :rows="TAMANO" :first="(paginaMovimientos - 1) * TAMANO" :total-records="totalMovimientos" :loading="cargandoMovimientos" data-key="idMovimiento" @page="cambiarPaginaMovimientos">
+        <Column header="Fecha"><template #body="{ data }">{{ formatearFechaHora(data.fecha) }}</template></Column>
+        <Column header="Tipo"><template #body="{ data }"><span class="tipo-movimiento" :class="{ 'tipo-movimiento--salida': signoMovimiento(data.tipo) === '−' }">{{ etiquetaMovimiento(data.tipo) }}</span></template></Column>
+        <Column header="Cantidad" header-class="numero" body-class="numero"><template #body="{ data }">{{ signoMovimiento(data.tipo) }}{{ formatearCantidad(data.cantidad) }}<span class="unidad">{{ productoHistorial ? unidad(productoHistorial) : '' }}</span></template></Column>
+        <Column header="Origen"><template #body="{ data }">
+          <RouterLink v-if="data.origen === 'PRODUCCION' && data.idReferencia && puedeVerProduccion" :to="{ name: 'produccion-detalle', params: { id: data.idReferencia } }">{{ etiquetaOrigen(data) }}</RouterLink>
+          <RouterLink v-else-if="data.origen === 'DESPACHO' && data.idReferencia && puedeVerPedido" :to="{ name: 'pedido', params: { id: data.idReferencia } }">{{ etiquetaOrigen(data) }}</RouterLink>
+          <span v-else>{{ etiquetaOrigen(data) }}</span>
+        </template></Column>
+        <Column header="Usuario"><template #body="{ data }">{{ data.usuario ?? '—' }}</template></Column>
+        <Column header="Observación"><template #body="{ data }">{{ data.observacion ?? '—' }}</template></Column>
+        <template #empty><p v-if="!cargandoMovimientos">Este producto aún no tiene movimientos.</p></template>
+      </DataTable>
     </Dialog>
   </section>
 </template>

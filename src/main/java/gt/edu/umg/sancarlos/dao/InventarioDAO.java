@@ -3,6 +3,7 @@ package gt.edu.umg.sancarlos.dao;
 import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import gt.edu.umg.sancarlos.dto.ExistenciaResumenDTO;
 import gt.edu.umg.sancarlos.dto.Pagina;
+import gt.edu.umg.sancarlos.dto.MovimientoDTO;
 import java.math.BigDecimal;
 import java.sql.CallableStatement;
 import java.sql.Connection;
@@ -15,6 +16,51 @@ import java.util.List;
 
 /** Acceso JDBC a las operaciones expuestas por PKG_INVENTARIO. */
 public class InventarioDAO {
+
+    private static final String SQL_MOVIMIENTOS_BASE = """
+              FROM MOVIMIENTO_INVENTARIO m
+              LEFT JOIN USUARIO u ON u.id_usuario = m.id_usuario
+             WHERE m.id_producto = ?
+            """;
+
+    public Pagina<MovimientoDTO> listarMovimientos(Connection connection, long idProducto,
+            int pagina, int tamano) throws SQLException {
+        long total;
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT COUNT(*)" + SQL_MOVIMIENTOS_BASE)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idProducto);
+            try (ResultSet rows = statement.executeQuery()) {
+                rows.next();
+                total = rows.getLong(1);
+            }
+        }
+        List<MovimientoDTO> items = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT m.id_movimiento, m.fecha_movimiento, m.tipo_movimiento,
+                       m.cantidad, m.origen, m.id_referencia, u.nombre AS usuario,
+                       m.observacion
+                """ + SQL_MOVIMIENTOS_BASE
+                + " ORDER BY m.fecha_movimiento DESC, m.id_movimiento DESC"
+                + " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY")) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idProducto);
+            statement.setLong(2, ((long) pagina - 1) * tamano);
+            statement.setInt(3, tamano);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    long referencia = rows.getLong("id_referencia");
+                    Long idReferencia = rows.wasNull() ? null : referencia;
+                    items.add(new MovimientoDTO(rows.getLong("id_movimiento"),
+                            rows.getTimestamp("fecha_movimiento").toLocalDateTime(),
+                            rows.getString("tipo_movimiento"), rows.getBigDecimal("cantidad"),
+                            rows.getString("origen"), idReferencia,
+                            rows.getString("usuario"), rows.getString("observacion")));
+                }
+            }
+        }
+        return new Pagina<>(items, total, pagina, tamano);
+    }
 
     private static final String SQL_BASE = """
               FROM PRODUCTO p

@@ -3,6 +3,8 @@ package gt.edu.umg.sancarlos.resource;
 import gt.edu.umg.sancarlos.dto.ApiError;
 import gt.edu.umg.sancarlos.dto.ExistenciaDTO;
 import gt.edu.umg.sancarlos.dto.MovimientoInventarioDTO;
+import gt.edu.umg.sancarlos.dto.MovimientoDTO;
+import gt.edu.umg.sancarlos.dto.Pagina;
 import gt.edu.umg.sancarlos.exception.InventarioConflictoException;
 import gt.edu.umg.sancarlos.exception.InventarioNoEncontradoException;
 import gt.edu.umg.sancarlos.service.InventarioService;
@@ -19,6 +21,8 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import jakarta.annotation.security.RolesAllowed;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,6 +34,35 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class InventarioResourceTest {
 
     private final ApiExceptionMapper mapper = new ApiExceptionMapper();
+
+    @Test
+    void historialValidaPaginaYResponde200O404() throws Exception {
+        Method metodo = InventarioResource.class.getMethod("listarMovimientos",
+                String.class, String.class, String.class);
+        assertNotNull(metodo.getAnnotation(GET.class));
+        assertEquals("productos/{idProducto}/movimientos", metodo.getAnnotation(Path.class).value());
+        assertEquals(Set.of("ADMINISTRADOR", "GERENTE", "PRODUCCION", "BODEGA", "DESPACHO"),
+                Set.of(metodo.getAnnotation(RolesAllowed.class).value()));
+        InventarioResource recurso = new InventarioResource(new InventarioService() {
+            @Override public Pagina<MovimientoDTO> listarMovimientos(long id, int pagina, int tamano) {
+                if (id == 99) throw new InventarioNoEncontradoException("No existe", null);
+                return new Pagina<>(List.of(), 0, pagina, tamano);
+            }
+        });
+        try (Response respuesta = recurso.listarMovimientos("5", null, null)) {
+            assertEquals(200, respuesta.getStatus());
+            Pagina<?> pagina = assertInstanceOf(Pagina.class, respuesta.getEntity());
+            assertEquals(1, pagina.pagina());
+            assertEquals(20, pagina.tamano());
+        }
+        assertThrows(BadRequestException.class, () -> recurso.listarMovimientos("0", null, null));
+        assertThrows(IllegalArgumentException.class, () -> recurso.listarMovimientos("5", "1", "101"));
+        try (Response respuesta = mapper.toResponse(assertThrows(
+                InventarioNoEncontradoException.class,
+                () -> recurso.listarMovimientos("99", "1", "20")))) {
+            assertEquals(404, respuesta.getStatus());
+        }
+    }
 
     @Test
     void exponeRutasYMetodosHttp() throws Exception {

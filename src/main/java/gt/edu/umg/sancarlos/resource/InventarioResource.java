@@ -62,6 +62,17 @@ public class InventarioResource {
         return Response.ok(inventarioService.consultarExistencia(id)).build();
     }
 
+    @GET
+    @Path("productos/{idProducto}/movimientos")
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.PRODUCCION,
+            Roles.BODEGA, Roles.DESPACHO})
+    public Response listarMovimientos(@PathParam("idProducto") String idProducto,
+            @QueryParam("pagina") String pagina, @QueryParam("tamano") String tamano) {
+        Paginacion paginacion = Paginacion.de(pagina, tamano);
+        return Response.ok(inventarioService.listarMovimientos(parsearIdProducto(idProducto),
+                paginacion.pagina(), paginacion.tamano())).build();
+    }
+
     /** Entrada manual con origen AJUSTE; responde con la existencia resultante. */
     @POST
     @Path("productos/{idProducto}/entradas")

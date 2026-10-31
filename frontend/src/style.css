@@ -342,3 +342,7 @@ h1, h2 { line-height: 1.2; }
   .fila-ingrediente .consumo-campo { grid-column: 1 / -1; grid-row: 3; display: flex; align-items: center; justify-content: space-between; }
   .campo-rinde { max-width: none; }
 }
+.insumo-faltante { color: var(--psc-error); font-weight: 800; }
+.dialogo-historial { width: min(1000px, 95vw); }
+.tipo-movimiento { display: inline-block; padding: .2rem .55rem; border-radius: 999px; background: var(--p-surface-100); }
+.tipo-movimiento--salida { font-weight: 700; }

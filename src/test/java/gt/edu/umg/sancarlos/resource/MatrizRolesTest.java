@@ -14,6 +14,8 @@ import gt.edu.umg.sancarlos.dto.PedidoResumenDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionResumenDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionConPedidosDTO;
 import gt.edu.umg.sancarlos.dto.ExistenciaResumenDTO;
+import gt.edu.umg.sancarlos.dto.InsumosProduccionDTO;
+import gt.edu.umg.sancarlos.dto.MovimientoDTO;
 import gt.edu.umg.sancarlos.dto.UsuarioDTO;
 import gt.edu.umg.sancarlos.dto.ProductoSolicitudDTO;
 import gt.edu.umg.sancarlos.dto.SucursalSolicitudDTO;
@@ -113,10 +115,12 @@ class MatrizRolesTest {
             Map.entry("ProduccionResource.finalizarProduccion", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.cancelarProduccion", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.consultarDetalle", Set.of(ADMIN, GERENTE, PRODUCCION)),
+            Map.entry("ProduccionResource.consultarInsumos", Set.of(ADMIN, GERENTE, PRODUCCION)),
             Map.entry("ProduccionResource.listarProducciones", Set.of(ADMIN, GERENTE, PRODUCCION)),
             Map.entry("ProduccionResource.buscarProduccionPorId", Set.of(ADMIN, GERENTE, PRODUCCION)),
             Map.entry("InventarioResource.consultarExistencia", Set.of(ADMIN, GERENTE, PRODUCCION, BODEGA, DESPACHO)),
             Map.entry("InventarioResource.listarExistencias", Set.of(ADMIN, GERENTE, PRODUCCION, BODEGA, DESPACHO)),
+            Map.entry("InventarioResource.listarMovimientos", Set.of(ADMIN, GERENTE, PRODUCCION, BODEGA, DESPACHO)),
             Map.entry("InventarioResource.registrarEntrada", Set.of(ADMIN, BODEGA)),
             Map.entry("InventarioResource.registrarSalida", Set.of(ADMIN, BODEGA)),
             Map.entry("DespachoResource.despacharPedido", Set.of(ADMIN, DESPACHO)),
@@ -161,10 +165,12 @@ class MatrizRolesTest {
             Map.entry("ProduccionResource.finalizarProduccion", new CasoHttp("POST", "producciones/4/finalizar", null)),
             Map.entry("ProduccionResource.cancelarProduccion", new CasoHttp("POST", "producciones/4/cancelar", null)),
             Map.entry("ProduccionResource.consultarDetalle", new CasoHttp("GET", "producciones/4/detalle", null)),
+            Map.entry("ProduccionResource.consultarInsumos", new CasoHttp("GET", "producciones/4/insumos", null)),
             Map.entry("ProduccionResource.listarProducciones", new CasoHttp("GET", "producciones", null)),
             Map.entry("ProduccionResource.buscarProduccionPorId", new CasoHttp("GET", "producciones/4", null)),
             Map.entry("InventarioResource.consultarExistencia", new CasoHttp("GET", "inventario/productos/33/existencia", null)),
             Map.entry("InventarioResource.listarExistencias", new CasoHttp("GET", "inventario/existencias", null)),
+            Map.entry("InventarioResource.listarMovimientos", new CasoHttp("GET", "inventario/productos/33/movimientos", null)),
             Map.entry("InventarioResource.registrarEntrada", new CasoHttp("POST", "inventario/productos/33/entradas", "{\"cantidad\":1}")),
             Map.entry("InventarioResource.registrarSalida", new CasoHttp("POST", "inventario/productos/33/salidas", "{\"cantidad\":1}")),
             Map.entry("DespachoResource.despacharPedido", new CasoHttp("POST", "pedidos/2/despacho", null)),
@@ -362,6 +368,10 @@ class MatrizRolesTest {
                     }
                 }))
                 .register(new InventarioResource(new InventarioService() {
+                    @Override public Pagina<MovimientoDTO> listarMovimientos(long idProducto,
+                            int pagina, int tamano) {
+                        return new Pagina<>(List.of(), 0, pagina, tamano);
+                    }
                     @Override
                     public ExistenciaDTO consultarExistencia(long idProducto) {
                         return new ExistenciaDTO(idProducto, BigDecimal.ONE);
@@ -385,6 +395,10 @@ class MatrizRolesTest {
                     }
                 }))
                 .register(new ProduccionResource(new ProduccionService() {
+                    @Override public InsumosProduccionDTO consultarInsumos(long idProduccion) {
+                        return new InsumosProduccionDTO(idProduccion, "PLANIFICADA", List.of(),
+                                List.of(), true);
+                    }
                     @Override
                     public long crearProduccion(long idUsuario, String observacion) {
                         return 4;

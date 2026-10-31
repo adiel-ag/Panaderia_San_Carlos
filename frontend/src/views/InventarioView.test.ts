@@ -11,11 +11,11 @@ import InventarioView from './InventarioView.vue'
 import { ApiError } from '../api/cliente'
 
 const api = vi.hoisted(() => ({
-  listarExistencias: vi.fn(), registrarMovimiento: vi.fn(), replace: vi.fn(), toast: vi.fn(), sesion: { rol: 'BODEGA' },
+  listarExistencias: vi.fn(), listarMovimientos: vi.fn(), registrarMovimiento: vi.fn(), replace: vi.fn(), toast: vi.fn(), sesion: { rol: 'BODEGA' },
 }))
 const route = reactive({ query: {} as Record<string, string>, fullPath: '/inventario' })
 vi.mock('../api/inventario', async (original) => ({ ...(await original<typeof import('../api/inventario')>()),
-  listarExistencias: api.listarExistencias, registrarMovimiento: api.registrarMovimiento }))
+  listarExistencias: api.listarExistencias, listarMovimientos: api.listarMovimientos, registrarMovimiento: api.registrarMovimiento }))
 vi.mock('../stores/sesion', () => ({ useSesionStore: () => api.sesion }))
 vi.mock('vue-router', async (original) => ({
   ...(await original<typeof import('vue-router')>()), useRoute: () => route, useRouter: () => ({ replace: api.replace }),
@@ -39,6 +39,7 @@ function llamadasLista() { return api.listarExistencias.mock.calls.filter((llama
 const montajes: VueWrapper[] = []
 async function montar() {
   const wrapper = mount(InventarioView, { attachTo: document.body, global: { plugins: [PrimeVue], stubs: {
+    RouterLink: { props: ['to'], template: '<a :data-to="JSON.stringify(to)"><slot /></a>' },
     Dialog: { props: ['visible', 'header'], template: '<div v-if="visible" class="dialogo-stub"><h2>{{ header }}</h2><slot /></div>' },
   } } })
   montajes.push(wrapper)
@@ -69,9 +70,59 @@ beforeEach(() => {
   api.sesion.rol = 'BODEGA'
   responder()
   api.registrarMovimiento.mockResolvedValue({ idProducto: 1, existencia: 30.5 })
+  api.listarMovimientos.mockResolvedValue(vacia)
 })
 
 describe('InventarioView', () => {
+  it('abre el historial y solicita la página siguiente', async () => {
+    responder({ ...vacia, total: 1, items: [harina] })
+    api.listarMovimientos.mockResolvedValue({ ...vacia, total: 25, items: [{ idMovimiento: 11,
+      fecha: '2026-10-31T08:00:00', tipo: 'SALIDA', cantidad: 2, origen: 'PRODUCCION',
+      idReferencia: 5, usuario: null, observacion: 'Prueba' }] })
+    const wrapper = await montar()
+    await wrapper.find('[aria-label="Ver movimientos de Harina"]').trigger('click')
+    await flushPromises()
+    expect(api.listarMovimientos).toHaveBeenCalledWith(1, 1, 20)
+    expect(wrapper.find('.dialogo-stub').text()).toContain('Movimientos · Harina')
+    expect(wrapper.find('.dialogo-stub').text()).toContain('Producción #5')
+    expect(wrapper.find('.dialogo-stub').text()).toContain('−2')
+    const tablas = wrapper.findAllComponents({ name: 'DataTable' })
+    tablas[tablas.length - 1]!.vm.$emit('page', { page: 1 })
+    await flushPromises()
+    expect(api.listarMovimientos).toHaveBeenCalledWith(1, 2, 20)
+  })
+
+  it.each([
+    ['ADMINISTRADOR', true, true], ['GERENTE', true, true], ['PRODUCCION', true, true],
+    ['BODEGA', false, false], ['DESPACHO', false, true],
+  ])('%s enlaza solo los orígenes permitidos', async (rol, produccion, pedido) => {
+    api.sesion.rol = rol
+    responder({ ...vacia, total: 1, items: [harina] })
+    api.listarMovimientos.mockResolvedValue({ ...vacia, total: 2, items: [
+      { idMovimiento: 1, fecha: '2026-10-31T08:00:00', tipo: 'ENTRADA', cantidad: 2,
+        origen: 'PRODUCCION', idReferencia: 5, usuario: 'Ana', observacion: null },
+      { idMovimiento: 2, fecha: '2026-10-31T07:00:00', tipo: 'SALIDA', cantidad: 1,
+        origen: 'DESPACHO', idReferencia: 7, usuario: null, observacion: null },
+    ] })
+    const wrapper = await montar()
+    await wrapper.find('[aria-label="Ver movimientos de Harina"]').trigger('click')
+    await flushPromises()
+    const enlaces = wrapper.find('.dialogo-stub').findAll('a').map((item) => item.attributes('data-to'))
+    expect(enlaces.some((item) => item?.includes('produccion-detalle'))).toBe(produccion)
+    expect(enlaces.some((item) => item?.includes('"pedido"'))).toBe(pedido)
+  })
+
+  it('muestra historial vacío, error y reintento', async () => {
+    responder({ ...vacia, total: 1, items: [harina] })
+    api.listarMovimientos.mockRejectedValueOnce(new Error('red'))
+    const wrapper = await montar()
+    await wrapper.find('[aria-label="Ver movimientos de Harina"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.dialogo-stub').text()).toContain('No se pudieron cargar los movimientos.')
+    await wrapper.find('.dialogo-stub button').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.dialogo-stub').text()).toContain('Este producto aún no tiene movimientos.')
+  })
   it('consulta las existencias y el conteo bajo el mínimo por defecto', async () => {
     responder({ ...vacia, total: 4, items: [harina, azucar, levadura, huevos] }, 2)
     const wrapper = await montar()
@@ -175,7 +226,7 @@ describe('InventarioView', () => {
     const wrapper = await montar()
     expect(wrapper.text()).toContain('Harina')
     expect(wrapper.find('[aria-label^="Registrar"]').exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('Movimientos')
+    expect(wrapper.find('[aria-label="Ver movimientos de Harina"]').exists()).toBe(true)
   })
 
   it('registra una entrada, avisa y recarga en el lugar', async () => {
