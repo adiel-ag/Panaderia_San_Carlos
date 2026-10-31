@@ -5,4 +5,8 @@ describe('rutas', () => {
   it('incluye la pagina de inicio', () => {
     expect(router.getRoutes().some((route) => route.path === '/')).toBe(true)
   })
+
+  it('incluye la ruta de acceso', () => {
+    expect(router.getRoutes().some((route) => route.path === '/login' && route.name === 'login')).toBe(true)
+  })
 })
