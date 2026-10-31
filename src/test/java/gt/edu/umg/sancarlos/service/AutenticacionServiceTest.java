@@ -8,6 +8,7 @@ import gt.edu.umg.sancarlos.exception.CredencialesInvalidasException;
 import gt.edu.umg.sancarlos.exception.CuentaBloqueadaException;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.UsuarioNoEncontradoException;
+import gt.edu.umg.sancarlos.exception.UsuarioConflictoException;
 import gt.edu.umg.sancarlos.exception.UsuarioSolicitudInvalidaException;
 import gt.edu.umg.sancarlos.model.UsuarioSesion;
 import gt.edu.umg.sancarlos.service.AutenticacionService.SesionIniciada;
@@ -227,6 +228,22 @@ class AutenticacionServiceTest {
     }
 
     @Test
+    void cambiarClaveNoSobrescribeUnRestablecimientoHechoMientrasTanto() {
+        DaoFalso dao = new DaoFalso();
+        dao.resultados.add(new ResultadoAcceso(1L, 0));
+        // Un administrador restablecio la clave despues de la verificacion:
+        // la credencial ya tiene otro salt.
+        dao.saltActual = Base64.getEncoder().encodeToString(new byte[]{1, 2, 3});
+
+        assertThrows(UsuarioConflictoException.class,
+                () -> servicio(dao).cambiarClave(ADMIN,
+                        "secreta1".toCharArray(), "nueva-clave".toCharArray()));
+
+        assertEquals(null, dao.idEstablecido);
+        assertEquals("rollback", eventos.get(eventos.size() - 2));
+    }
+
+    @Test
     void cambiarClaveValidaNuevaAntesDeOracle() {
         DaoFalso dao = new DaoFalso();
         assertThrows(IllegalArgumentException.class,
@@ -270,6 +287,7 @@ class AutenticacionServiceTest {
         int llamadasValidar;
         String huellaRecibida;
         Long idEstablecido;
+        String saltActual = SALT;
         String algoritmoEstablecido;
         int iteracionesEstablecidas;
         String saltEstablecido;
@@ -313,6 +331,11 @@ class AutenticacionServiceTest {
             saltEstablecido = salt;
             huellaEstablecida = huella;
             perfil = Optional.of(new PerfilAcceso(ADMIN, INICIO.plusSeconds(1), INICIO));
+        }
+
+        @Override
+        public Optional<String> reservarSalt(Connection connection, long idUsuario) {
+            return Optional.ofNullable(saltActual);
         }
 
         @Override

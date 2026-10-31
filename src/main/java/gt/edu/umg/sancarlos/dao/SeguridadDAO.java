@@ -42,6 +42,9 @@ public class SeguridadDAO {
     private static final String SQL_ID_POR_USERNAME =
             "SELECT id_usuario FROM USUARIO WHERE username = ?";
 
+    private static final String SQL_RESERVAR_SALT =
+            "SELECT salt FROM USUARIO_CREDENCIAL WHERE id_usuario = ? FOR UPDATE";
+
     /** Algoritmo, iteraciones y salt con que se calculo la huella guardada. */
     public record ParametrosClave(String algoritmo, int iteraciones, String salt) {
     }
@@ -125,6 +128,23 @@ public class SeguridadDAO {
                 return Optional.of(new PerfilAcceso(usuario,
                         aFecha(resultSet.getTimestamp("fecha_cambio")),
                         aFecha(resultSet.getTimestamp("ultimo_acceso"))));
+            }
+        }
+    }
+
+    /**
+     * Reserva la credencial hasta el fin de la transaccion y devuelve su salt
+     * actual; vacio si el usuario no tiene clave.
+     */
+    public Optional<String> reservarSalt(Connection connection, long idUsuario)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(SQL_RESERVAR_SALT)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idUsuario);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next()
+                        ? Optional.of(resultSet.getString("salt"))
+                        : Optional.empty();
             }
         }
     }

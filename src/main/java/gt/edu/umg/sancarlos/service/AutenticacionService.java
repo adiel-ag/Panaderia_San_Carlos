@@ -8,6 +8,7 @@ import gt.edu.umg.sancarlos.dao.SeguridadDAO.ResultadoAcceso;
 import gt.edu.umg.sancarlos.exception.CredencialesInvalidasException;
 import gt.edu.umg.sancarlos.exception.CuentaBloqueadaException;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
+import gt.edu.umg.sancarlos.exception.UsuarioConflictoException;
 import gt.edu.umg.sancarlos.exception.UsuarioNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.UsuarioSolicitudInvalidaException;
 import gt.edu.umg.sancarlos.model.UsuarioSesion;
@@ -28,6 +29,8 @@ public class AutenticacionService {
     static final String CUENTA_BLOQUEADA =
             "La cuenta está bloqueada temporalmente por intentos fallidos. "
             + "Intente de nuevo en 15 minutos.";
+    static final String CLAVE_CAMBIADA =
+            "La contraseña cambió mientras se procesaba la solicitud. Inicie sesión de nuevo.";
 
     // Valores de p_resultado de PKG_SEGURIDAD.SP_VALIDAR_ACCESO.
     static final int ACCESO_CORRECTO = 0;
@@ -63,7 +66,15 @@ public class AutenticacionService {
     public record SesionIniciada(UsuarioSesion usuario, LocalDateTime inicio) {
     }
 
+    /** Acceso correcto y el salt de la clave con que se verifico. */
+    private record AccesoVerificado(SesionIniciada sesion, String salt) {
+    }
+
     public SesionIniciada iniciarSesion(String username, char[] clave) {
+        return verificarAcceso(username, clave).sesion();
+    }
+
+    private AccesoVerificado verificarAcceso(String username, char[] clave) {
         if (username == null || username.isBlank() || clave == null || clave.length == 0) {
             throw new IllegalArgumentException("El usuario y la contraseña son obligatorios");
         }
@@ -80,7 +91,7 @@ public class AutenticacionService {
         }
     }
 
-    private SesionIniciada intentarAcceso(String username, char[] clave) {
+    private AccesoVerificado intentarAcceso(String username, char[] clave) {
         ParametrosClave parametros;
         try (Connection connection = conexiones.abrir()) {
             parametros = seguridadDAO.obtenerParametros(connection, username);
@@ -121,7 +132,9 @@ public class AutenticacionService {
         }
 
         if (perfil != null) {
-            return new SesionIniciada(perfil.usuario(), perfil.ultimoAcceso());
+            return new AccesoVerificado(
+                    new SesionIniciada(perfil.usuario(), perfil.ultimoAcceso()),
+                    parametros.salt());
         }
         if (resultado.resultado() == CUENTA_BLOQUEADA_AHORA) {
             throw new CuentaBloqueadaException(CUENTA_BLOQUEADA, null);
@@ -168,28 +181,52 @@ public class AutenticacionService {
                 throw new IllegalArgumentException(
                         "La nueva contraseña debe ser distinta de la actual");
             }
-            SesionIniciada acceso;
+            AccesoVerificado acceso;
             try {
-                acceso = iniciarSesion(usuario.getUsername(), claveActual);
+                acceso = verificarAcceso(usuario.getUsername(), claveActual);
             } catch (CredencialesInvalidasException exception) {
                 throw new UsuarioSolicitudInvalidaException(
                         "La contraseña actual no es correcta", exception);
             }
-            if (acceso.usuario().getIdUsuario() != usuario.getIdUsuario()) {
+            long idUsuario = usuario.getIdUsuario();
+            if (acceso.sesion().usuario().getIdUsuario() != idUsuario) {
                 throw new UsuarioSolicitudInvalidaException(
                         "La contraseña actual no es correcta", null);
             }
-            establecerClave(usuario.getIdUsuario(), claveNueva);
+            HuellaClave.Nueva nueva = HuellaClave.calcularNueva(claveNueva, iteracionesNuevas);
+
             try (Connection connection = conexiones.abrir()) {
-                PerfilAcceso perfil = seguridadDAO.buscarPerfil(connection, usuario.getIdUsuario())
-                        .orElseThrow(() -> new UsuarioNoEncontradoException(
-                                "El usuario no existe", null));
-                if (perfil.fechaCambioClave() == null) {
-                    throw new DataAccessException("No fue posible renovar la sesión", null);
+                connection.setAutoCommit(false);
+                try {
+                    // Entre la verificacion y este paso un administrador pudo
+                    // restablecer la clave. Cada clave guardada lleva un salt
+                    // aleatorio nuevo: si ya no es el verificado, no se
+                    // sobrescribe ese cambio. La reserva (FOR UPDATE) hace que
+                    // un restablecimiento posterior espere y quede como ultimo.
+                    String saltActual = seguridadDAO.reservarSalt(connection, idUsuario)
+                            .orElse(null);
+                    if (!acceso.salt().equals(saltActual)) {
+                        throw new UsuarioConflictoException(CLAVE_CAMBIADA, null);
+                    }
+                    seguridadDAO.establecerClave(connection, idUsuario, HuellaClave.ALGORITMO,
+                            iteracionesNuevas, nueva.salt(), nueva.huella());
+                    PerfilAcceso perfil = seguridadDAO.buscarPerfil(connection, idUsuario)
+                            .orElseThrow(() -> new UsuarioConflictoException(CLAVE_CAMBIADA, null));
+                    if (perfil.fechaCambioClave() == null) {
+                        throw new SQLException("La credencial no registro la fecha de cambio");
+                    }
+                    connection.commit();
+                    return new SesionIniciada(perfil.usuario(), perfil.fechaCambioClave());
+                } catch (SQLException | RuntimeException exception) {
+                    rollback(connection, exception);
+                    if (exception instanceof SQLException sqlException) {
+                        throw new DataAccessException("No fue posible cambiar la contraseña",
+                                sqlException);
+                    }
+                    throw exception;
                 }
-                return new SesionIniciada(perfil.usuario(), perfil.fechaCambioClave());
             } catch (SQLException exception) {
-                throw new DataAccessException("No fue posible renovar la sesión", exception);
+                throw new DataAccessException("No fue posible cambiar la contraseña", exception);
             }
         } finally {
             if (claveActual != null) Arrays.fill(claveActual, '\0');
