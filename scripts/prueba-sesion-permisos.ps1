@@ -91,6 +91,25 @@ function Requerir-Status($Respuesta, [int] $Esperado, [string] $Nombre) {
 
 function Titulo([string] $Texto) { Write-Host ""; Write-Host "== $Texto ==" -ForegroundColor Cyan }
 
+# Recorre todas las paginas de un listado (100 por pagina) y devuelve sus filas.
+# Falla si una pagina no responde 200 o si el total no cuadra con lo recibido.
+function Todas-Las-Filas($Cliente, [string] $Ruta) {
+    $separador = if ($Ruta.Contains("?")) { "&" } else { "?" }
+    $filas = New-Object System.Collections.ArrayList
+    for ($pagina = 1; $pagina -le 1000; $pagina++) {
+        $r = Invoke-Api $Cliente GET "$Ruta$($separador)pagina=$pagina&tamano=100"
+        if ($r.Status -ne 200) { throw "GET $Ruta pagina $pagina respondio $($r.Status): $($r.Texto)" }
+        $items = @($r.Datos.items)
+        foreach ($item in $items) { [void] $filas.Add($item) }
+        if ($items.Count -lt 100 -or $filas.Count -ge [long] $r.Datos.total) {
+            if ($filas.Count -ne [long] $r.Datos.total) { throw "GET $($Ruta): total $($r.Datos.total), filas recibidas $($filas.Count)" }
+            Comprobar "GET $Ruta ($($filas.Count) fila(s))" $true
+            return $filas.ToArray()
+        }
+    }
+    throw "GET $($Ruta): demasiadas paginas"
+}
+
 function Iniciar-Sesion($Cliente, [string] $Usuario, [System.Security.SecureString] $Clave) {
     $puntero = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Clave)
     try {
@@ -157,6 +176,55 @@ try {
     Esperar-Status (Invoke-Api $admin GET "/producciones/$IdProduccion/detalle") 200 "detalle de produccion como administrador"
     Esperar-Status (Invoke-Api $admin GET "/inventario/productos/$IdProducto/existencia") 200 "existencia como administrador"
 
+    Titulo "1b. Listados como administrador"
+    # Cada filtro debe devolver un registro conocido (no basta con que "todos
+    # cumplan" si la lista viene vacia) y se recorren todas las paginas: el
+    # orden es "mas recientes primero" y los pedidos de prueba son antiguos.
+    $todos = @(Todas-Las-Filas $admin "/pedidos")
+    $ids = @($todos | ForEach-Object { [long] $_.idPedido })
+    Comprobar "el listado incluye los pedidos $PedidoPropio y $PedidoAjeno" ($ids -contains $PedidoPropio -and $ids -contains $PedidoAjeno) "ids: $($ids -join ',')"
+    Comprobar "sin pedidos repetidos entre paginas" (@($ids | Sort-Object -Unique).Count -eq $ids.Count)
+    $deAjena = @(Todas-Las-Filas $admin "/pedidos?idSucursal=$sucursalAjena")
+    Comprobar "filtro por sucursal: incluye el $PedidoAjeno y solo la sucursal $sucursalAjena" ((@($deAjena | ForEach-Object { [long] $_.idPedido }) -contains $PedidoAjeno) -and @($deAjena | Where-Object { "$($_.idSucursal)" -ne "$sucursalAjena" }).Count -eq 0)
+    $estadoAjeno = $ajenoAdmin.Datos.estado
+    $mismoEstado = @(Todas-Las-Filas $admin "/pedidos?estado=$estadoAjeno")
+    Comprobar "filtro por estado $($estadoAjeno): incluye el $PedidoAjeno y solo ese estado" ((@($mismoEstado | ForEach-Object { [long] $_.idPedido }) -contains $PedidoAjeno) -and @($mismoEstado | Where-Object { $_.estado -ne $estadoAjeno }).Count -eq 0)
+    $entrega = "$($propioAdmin.Datos.fechaEntrega)".Substring(0, 10)
+    $delDia = @(Todas-Las-Filas $admin "/pedidos?entregaDesde=$entrega&entregaHasta=$entrega")
+    Comprobar "filtro de fechas $($entrega): incluye el $PedidoPropio y solo esa fecha" ((@($delDia | ForEach-Object { [long] $_.idPedido }) -contains $PedidoPropio) -and @($delDia | Where-Object { "$($_.fechaEntrega)".Substring(0, 10) -ne $entrega }).Count -eq 0)
+    Esperar-Status (Invoke-Api $admin GET "/pedidos?estado=INVENTADO") 400 "estado de pedido invalido"
+    Esperar-Status (Invoke-Api $admin GET "/pedidos?entregaDesde=2026-12-31&entregaHasta=2026-01-01") 400 "rango de fechas invertido"
+    Esperar-Status (Invoke-Api $admin GET "/pedidos?tamano=101") 400 "tamano mayor a 100"
+    $producciones = @(Todas-Las-Filas $admin "/producciones")
+    Comprobar "el listado de producciones incluye la $IdProduccion" (@($producciones | ForEach-Object { [long] $_.idProduccion }) -contains $IdProduccion)
+    $produccion = Invoke-Api $admin GET "/producciones/$IdProduccion"
+    Esperar-Status $produccion 200 "GET /producciones/$IdProduccion"
+    $resumen = @($producciones | Where-Object { [long] $_.idProduccion -eq $IdProduccion })[0]
+    Comprobar "la produccion trae $($resumen.cantidadPedidos) pedido(s), como indica el listado" ($null -ne $produccion.Datos -and @($produccion.Datos.pedidos).Count -eq [long] $resumen.cantidadPedidos) $produccion.Texto
+    Esperar-Status (Invoke-Api $admin GET "/producciones/$IdInexistente") 404 "produccion inexistente"
+    $existencias = @(Todas-Las-Filas $admin "/inventario/existencias")
+    $producto = @($existencias | Where-Object { [long] $_.idProducto -eq $IdProducto })[0]
+    Comprobar "existencias incluye el producto $IdProducto" ($null -ne $producto)
+    $sinDefinir = @($existencias | Where-Object { $null -ne $_.existencia -and ($_.bajoMinimo -ne ([decimal] $_.existencia -lt [decimal] $_.stockMinimo)) })
+    Comprobar "bajoMinimo coincide con existencia < stockMinimo en cada fila" ($sinDefinir.Count -eq 0) "filas: $(($sinDefinir | ForEach-Object { $_.idProducto }) -join ',')"
+    Comprobar "sin inventario: bajoMinimo vacio" (@($existencias | Where-Object { $null -eq $_.existencia -and $null -ne $_.bajoMinimo }).Count -eq 0)
+    $delTipo = @(Todas-Las-Filas $admin "/inventario/existencias?tipo=$($producto.tipo)")
+    Comprobar "filtro por tipo $($producto.tipo): incluye el $IdProducto y solo ese tipo" ((@($delTipo | ForEach-Object { [long] $_.idProducto }) -contains $IdProducto) -and @($delTipo | Where-Object { $_.tipo -ne $producto.tipo }).Count -eq 0)
+    foreach ($valor in "true", "false") {
+        $esperados = @($existencias | Where-Object { "$($_.bajoMinimo)" -eq $valor } | ForEach-Object { [long] $_.idProducto } | Sort-Object)
+        $obtenidos = @(Todas-Las-Filas $admin "/inventario/existencias?bajoMinimo=$valor" | ForEach-Object { [long] $_.idProducto } | Sort-Object)
+        Comprobar "filtro bajoMinimo=$($valor): $($esperados.Count) producto(s), los mismos que marca el listado" (($esperados -join ',') -eq ($obtenidos -join ','))
+    }
+    $parte = $producto.nombre.Substring(0, [Math]::Min(4, $producto.nombre.Length)).ToLower()
+    $porNombre = @(Todas-Las-Filas $admin "/inventario/existencias?nombre=$([uri]::EscapeDataString($parte))")
+    Comprobar "busqueda '$parte' (sin distinguir mayusculas) incluye el $IdProducto" (@($porNombre | ForEach-Object { [long] $_.idProducto }) -contains $IdProducto)
+    # %25 es un % literal: debe buscar el caracter, no funcionar como comodin.
+    $conPorcentaje = @($existencias | Where-Object { $_.nombre.Contains("%") } | ForEach-Object { [long] $_.idProducto } | Sort-Object)
+    $obtenidos = @(Todas-Las-Filas $admin "/inventario/existencias?nombre=%25" | ForEach-Object { [long] $_.idProducto } | Sort-Object)
+    Comprobar "el % se busca como texto: $($conPorcentaje.Count) producto(s) con % en el nombre" (($conPorcentaje -join ',') -eq ($obtenidos -join ','))
+    Esperar-Status (Invoke-Api $admin GET "/inventario/existencias?tipo=OTRO") 400 "tipo de producto invalido"
+    Esperar-Status (Invoke-Api $admin GET "/inventario/existencias?bajoMinimo=quizas") 400 "bajoMinimo invalido"
+
     Titulo "2. Usuario SUCURSAL"
     if ($null -eq $ClaveSucursal) { $ClaveSucursal = Read-Host "  Contrasena de $UsuarioSucursal" -AsSecureString }
     # El acceso correcto deja intentos_fallidos en 0 antes de cualquier intento fallido.
@@ -204,6 +272,18 @@ try {
     Esperar-Status (Invoke-Api $sucursal POST "/inventario/productos/$IdInexistente/salidas" @{ cantidad = 1 }) 403 "salida denegada"
     Esperar-Status (Invoke-Api $sucursal POST "/pedidos/$IdInexistente/despacho") 403 "despacho denegado"
     Esperar-Status (Invoke-Api $sucursal PUT "/usuarios/$IdInexistente/clave" @{ password = "clave-ficticia" }) 403 "asignar clave denegado"
+
+    Titulo "2b. Listados como SUCURSAL"
+    $propios = @(Todas-Las-Filas $sucursal "/pedidos")
+    $idsPropios = @($propios | ForEach-Object { [long] $_.idPedido })
+    Comprobar "solo pedidos de su sucursal ($sucursalPropia)" ($propios.Count -gt 0 -and @($propios | Where-Object { "$($_.idSucursal)" -ne "$sucursalPropia" }).Count -eq 0)
+    Comprobar "incluye su pedido $PedidoPropio y no el $PedidoAjeno" (($idsPropios -contains $PedidoPropio) -and -not ($idsPropios -contains $PedidoAjeno))
+    $ajenos = Invoke-Api $sucursal GET "/pedidos?idSucursal=$sucursalAjena"
+    Esperar-Status $ajenos 200 "GET /pedidos?idSucursal=$sucursalAjena como sucursal"
+    Comprobar "otra sucursal: lista vacia" ([long] $ajenos.Datos.total -eq 0 -and @($ajenos.Datos.items).Count -eq 0) $ajenos.Texto
+    Esperar-Status (Invoke-Api $sucursal GET "/producciones") 403 "listado de producciones denegado"
+    Esperar-Status (Invoke-Api $sucursal GET "/producciones/$IdProduccion") 403 "produccion denegada"
+    Esperar-Status (Invoke-Api $sucursal GET "/inventario/existencias") 403 "listado de existencias denegado"
 
     Titulo "3. Cierre de sesion"
     $primerCierre = Cerrar-Sesion $sucursal "sucursal"

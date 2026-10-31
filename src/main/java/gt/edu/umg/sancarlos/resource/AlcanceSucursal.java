@@ -17,4 +17,15 @@ final class AlcanceSucursal {
                 || (usuario.getIdSucursal() != null
                         && Objects.equals(usuario.getIdSucursal(), idSucursalDelRecurso));
     }
+
+    /** Evita consultar pedidos cuando el filtro contradice la sucursal de sesion. */
+    static boolean puedeListar(UsuarioSesion usuario, Long filtro) {
+        return !Roles.SUCURSAL.equals(usuario.getRol())
+                || (usuario.getIdSucursal() != null
+                        && (filtro == null || Objects.equals(usuario.getIdSucursal(), filtro)));
+    }
+
+    static Long sucursalEfectiva(UsuarioSesion usuario, Long filtro) {
+        return Roles.SUCURSAL.equals(usuario.getRol()) ? usuario.getIdSucursal() : filtro;
+    }
 }

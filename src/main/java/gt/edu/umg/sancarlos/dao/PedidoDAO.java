@@ -3,6 +3,8 @@ package gt.edu.umg.sancarlos.dao;
 import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDetalleDTO;
+import gt.edu.umg.sancarlos.dto.Pagina;
+import gt.edu.umg.sancarlos.dto.PedidoResumenDTO;
 import gt.edu.umg.sancarlos.model.Pedido;
 import gt.edu.umg.sancarlos.model.PedidoDetalle;
 import java.sql.CallableStatement;
@@ -12,6 +14,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Optional;
+import java.util.List;
+import java.util.ArrayList;
+import java.time.LocalDate;
 
 /** Acceso JDBC a las operaciones ofrecidas por PKG_PEDIDO y a su consulta. */
 public class PedidoDAO {
@@ -41,6 +46,103 @@ public class PedidoDAO {
              WHERE p.id_pedido = ?
              ORDER BY pd.id_pedido_detalle
             """;
+    private static final String SQL_RESUMEN_SELECT = """
+            SELECT p.id_pedido, p.id_sucursal, s.nombre AS nombre_sucursal,
+                   p.id_usuario, u.nombre AS nombre_usuario, p.fecha_pedido,
+                   p.fecha_entrega, p.estado, p.observacion,
+                   (SELECT COUNT(*) FROM PEDIDO_DETALLE pd
+                     WHERE pd.id_pedido = p.id_pedido) AS cantidad_productos
+            """;
+    private static final String SQL_RESUMEN_BASE = """
+              FROM PEDIDO p
+              JOIN SUCURSAL s ON s.id_sucursal = p.id_sucursal
+              JOIN USUARIO u ON u.id_usuario = p.id_usuario
+            """;
+    private static final String SQL_FILTROS = """
+             WHERE (? IS NULL OR p.estado = ?)
+               AND (? IS NULL OR p.id_sucursal = ?)
+               AND (? IS NULL OR p.fecha_entrega >= ?)
+               AND (? IS NULL OR p.fecha_entrega < ? + 1)
+            """;
+
+    /** Pagina cabeceras y cuenta el total con los mismos filtros. */
+    public Pagina<PedidoResumenDTO> listar(Connection connection, int pagina, int tamano,
+            String estado, Long idSucursal, LocalDate desde, LocalDate hasta)
+            throws SQLException {
+        long total;
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT COUNT(*)" + SQL_RESUMEN_BASE + SQL_FILTROS)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            filtros(statement, estado, idSucursal, desde, hasta);
+            try (ResultSet rows = statement.executeQuery()) {
+                rows.next();
+                total = rows.getLong(1);
+            }
+        }
+        List<PedidoResumenDTO> items = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(SQL_RESUMEN_SELECT
+                + SQL_RESUMEN_BASE + SQL_FILTROS
+                + " ORDER BY p.fecha_pedido DESC, p.id_pedido DESC"
+                + " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY")) {
+            ConnectionFactory.aplicarTimeout(statement);
+            filtros(statement, estado, idSucursal, desde, hasta);
+            statement.setLong(9, ((long) pagina - 1) * tamano);
+            statement.setInt(10, tamano);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) items.add(mapearResumen(rows));
+            }
+        }
+        return new Pagina<>(items, total, pagina, tamano);
+    }
+
+    /** Usa la misma proyeccion y conversion que el listado de pedidos. */
+    public List<PedidoResumenDTO> listarDeProduccion(Connection connection, long idProduccion)
+            throws SQLException {
+        List<PedidoResumenDTO> pedidos = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(SQL_RESUMEN_SELECT
+                + SQL_RESUMEN_BASE
+                + " JOIN PRODUCCION_PEDIDO pp ON pp.id_pedido = p.id_pedido"
+                + " WHERE pp.id_produccion = ?"
+                + " ORDER BY p.fecha_pedido DESC, p.id_pedido DESC")) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idProduccion);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) pedidos.add(mapearResumen(rows));
+            }
+        }
+        return pedidos;
+    }
+
+    private static void filtros(PreparedStatement statement, String estado, Long idSucursal,
+            LocalDate desde, LocalDate hasta) throws SQLException {
+        statement.setString(1, estado);
+        statement.setString(2, estado);
+        if (idSucursal == null) {
+            statement.setNull(3, Types.NUMERIC);
+            statement.setNull(4, Types.NUMERIC);
+        } else {
+            statement.setLong(3, idSucursal);
+            statement.setLong(4, idSucursal);
+        }
+        fecha(statement, 5, desde);
+        fecha(statement, 6, desde);
+        fecha(statement, 7, hasta);
+        fecha(statement, 8, hasta);
+    }
+
+    private static void fecha(PreparedStatement statement, int indice, LocalDate fecha)
+            throws SQLException {
+        if (fecha == null) statement.setNull(indice, Types.DATE);
+        else statement.setDate(indice, java.sql.Date.valueOf(fecha));
+    }
+
+    private static PedidoResumenDTO mapearResumen(ResultSet rows) throws SQLException {
+        return new PedidoResumenDTO(rows.getLong("id_pedido"), rows.getLong("id_sucursal"),
+                rows.getString("nombre_sucursal"), rows.getLong("id_usuario"),
+                rows.getString("nombre_usuario"), rows.getTimestamp("fecha_pedido").toLocalDateTime(),
+                rows.getDate("fecha_entrega").toLocalDate(), rows.getString("estado"),
+                rows.getString("observacion"), rows.getLong("cantidad_productos"));
+    }
 
     /** Crea la cabecera y retorna el ID generado; no administra la conexión. */
     public long crear(Connection connection, CrearPedidoDTO pedido) throws SQLException {

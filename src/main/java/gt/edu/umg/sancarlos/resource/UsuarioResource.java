@@ -49,11 +49,10 @@ public class UsuarioResource {
     public Response listarUsuarios(@QueryParam("pagina") String pagina,
             @QueryParam("tamano") String tamano, @QueryParam("rol") String rol,
             @QueryParam("estado") String estado, @QueryParam("idSucursal") String idSucursal) {
-        int numeroPagina = entero(pagina, 1, "La página debe ser un entero positivo");
-        int numeroTamano = entero(tamano, 20, "El tamaño debe ser un entero entre 1 y 100");
+        Paginacion paginacion = Paginacion.de(pagina, tamano);
         Long sucursal = idSucursal == null || idSucursal.isBlank() ? null
                 : positivo(idSucursal, "El ID de sucursal debe ser positivo");
-        return Response.ok(usuarioService.listar(numeroPagina, numeroTamano,
+        return Response.ok(usuarioService.listar(paginacion.pagina(), paginacion.tamano(),
                 vacioANull(rol), vacioANull(estado), sucursal)).build();
     }
 
@@ -139,17 +138,6 @@ public class UsuarioResource {
             // Se usa el mismo mensaje para todos los IDs invalidos.
         }
         throw new BadRequestException("El ID del usuario debe ser un número entero positivo.");
-    }
-
-    private static int entero(String texto, int predeterminado, String mensaje) {
-        if (texto == null) return predeterminado;
-        try {
-            int valor = Integer.parseInt(texto);
-            if (valor > 0) return valor;
-        } catch (NumberFormatException exception) {
-            // Se informa un error de solicitud sin detalles internos.
-        }
-        throw new BadRequestException(mensaje);
     }
 
     private static long positivo(String texto, String mensaje) {

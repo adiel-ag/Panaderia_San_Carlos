@@ -1,14 +1,91 @@
 package gt.edu.umg.sancarlos.dao;
 
 import gt.edu.umg.sancarlos.config.ConnectionFactory;
+import gt.edu.umg.sancarlos.dto.ExistenciaResumenDTO;
+import gt.edu.umg.sancarlos.dto.Pagina;
 import java.math.BigDecimal;
 import java.sql.CallableStatement;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Acceso JDBC a las operaciones expuestas por PKG_INVENTARIO. */
 public class InventarioDAO {
+
+    private static final String SQL_BASE = """
+              FROM PRODUCTO p
+              JOIN TIPO_PRODUCTO tp ON tp.id_tipo_producto = p.id_tipo_producto
+              JOIN UNIDAD_MEDIDA um ON um.id_unidad = p.id_unidad
+              LEFT JOIN INVENTARIO i ON i.id_producto = p.id_producto
+            """;
+    private static final String SQL_FILTROS = """
+             WHERE p.estado = 'ACTIVO'
+               AND (? IS NULL OR tp.nombre = ?)
+               AND (? IS NULL OR UPPER(p.nombre) LIKE '%' || UPPER(?) || '%' ESCAPE '\\')
+               AND (? IS NULL OR (i.id_producto IS NOT NULL AND
+                    CASE WHEN i.cantidad_actual < p.stock_minimo THEN 1 ELSE 0 END = ?))
+            """;
+    private static final String SQL_COLUMNAS = """
+            SELECT p.id_producto, p.nombre, tp.nombre AS tipo, um.abreviatura AS unidad,
+                   i.cantidad_actual AS existencia, p.stock_minimo,
+                   CASE WHEN i.id_producto IS NULL THEN NULL
+                        WHEN i.cantidad_actual < p.stock_minimo THEN 1 ELSE 0
+                   END AS bajo_minimo
+            """;
+
+    /** Pagina productos activos y distingue inventario ausente de existencia cero. */
+    public Pagina<ExistenciaResumenDTO> listarExistencias(Connection connection, int pagina,
+            int tamano, String tipo, String nombre, Boolean bajoMinimo) throws SQLException {
+        long total;
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT COUNT(*)" + SQL_BASE + SQL_FILTROS)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            filtros(statement, tipo, nombre, bajoMinimo);
+            try (ResultSet rows = statement.executeQuery()) {
+                rows.next();
+                total = rows.getLong(1);
+            }
+        }
+        List<ExistenciaResumenDTO> items = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(SQL_COLUMNAS + SQL_BASE
+                + SQL_FILTROS + " ORDER BY p.nombre, p.id_producto"
+                + " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY")) {
+            ConnectionFactory.aplicarTimeout(statement);
+            filtros(statement, tipo, nombre, bajoMinimo);
+            statement.setLong(7, ((long) pagina - 1) * tamano);
+            statement.setInt(8, tamano);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    int minimo = rows.getInt("bajo_minimo");
+                    Boolean bajo = rows.wasNull() ? null : minimo == 1;
+                    items.add(new ExistenciaResumenDTO(rows.getLong("id_producto"),
+                            rows.getString("nombre"), rows.getString("tipo"),
+                            rows.getString("unidad"), rows.getBigDecimal("existencia"),
+                            rows.getBigDecimal("stock_minimo"), bajo));
+                }
+            }
+        }
+        return new Pagina<>(items, total, pagina, tamano);
+    }
+
+    private static void filtros(PreparedStatement statement, String tipo, String nombre,
+            Boolean bajoMinimo) throws SQLException {
+        statement.setString(1, tipo);
+        statement.setString(2, tipo);
+        statement.setString(3, nombre);
+        statement.setString(4, nombre);
+        if (bajoMinimo == null) {
+            statement.setNull(5, Types.NUMERIC);
+            statement.setNull(6, Types.NUMERIC);
+        } else {
+            statement.setInt(5, bajoMinimo ? 1 : 0);
+            statement.setInt(6, bajoMinimo ? 1 : 0);
+        }
+    }
 
     private static final String FN_EXISTENCIA =
             "{ ? = call PKG_INVENTARIO.FN_EXISTENCIA(?) }";

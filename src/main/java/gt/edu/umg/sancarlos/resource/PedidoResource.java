@@ -2,7 +2,10 @@ package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
 import gt.edu.umg.sancarlos.dto.PedidoCreadoDTO;
+import gt.edu.umg.sancarlos.dto.Pagina;
+import gt.edu.umg.sancarlos.dto.PedidoResumenDTO;
 import gt.edu.umg.sancarlos.model.Pedido;
+import gt.edu.umg.sancarlos.model.UsuarioSesion;
 import gt.edu.umg.sancarlos.service.PedidoService;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.BadRequestException;
@@ -12,12 +15,15 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriInfo;
 import java.util.Optional;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 
 /** Endpoints REST para crear y consultar pedidos. */
 @Path("/pedidos")
@@ -32,6 +38,32 @@ public class PedidoResource {
 
     PedidoResource(PedidoService pedidoService) {
         this.pedidoService = pedidoService;
+    }
+
+    @GET
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.SUCURSAL,
+            Roles.PRODUCCION, Roles.DESPACHO})
+    public Response listarPedidos(@QueryParam("pagina") String pagina,
+            @QueryParam("tamano") String tamano, @QueryParam("estado") String estado,
+            @QueryParam("idSucursal") String idSucursal,
+            @QueryParam("entregaDesde") String entregaDesde,
+            @QueryParam("entregaHasta") String entregaHasta,
+            @Context SecurityContext seguridad) {
+        Paginacion paginacion = Paginacion.de(pagina, tamano);
+        Long sucursal = sucursal(idSucursal);
+        LocalDate desde = fecha(entregaDesde, "entregaDesde");
+        LocalDate hasta = fecha(entregaHasta, "entregaHasta");
+        if (desde != null && hasta != null && desde.isAfter(hasta)) {
+            throw new BadRequestException("entregaDesde debe ser anterior o igual a entregaHasta.");
+        }
+        PedidoService.validarEstado(estado);
+        UsuarioSesion usuario = UsuarioActual.de(seguridad);
+        if (!AlcanceSucursal.puedeListar(usuario, sucursal)) {
+            return Response.ok(new Pagina<PedidoResumenDTO>(java.util.List.of(), 0,
+                    paginacion.pagina(), paginacion.tamano())).build();
+        }
+        return Response.ok(pedidoService.listar(paginacion.pagina(), paginacion.tamano(),
+                estado, AlcanceSucursal.sucursalEfectiva(usuario, sucursal), desde, hasta)).build();
     }
 
     @POST
@@ -74,6 +106,26 @@ public class PedidoResource {
             throw new NotFoundException("No existe un pedido con ID " + idPedido);
         }
         return Response.ok(encontrado).build();
+    }
+
+    private static Long sucursal(String texto) {
+        if (texto == null) return null;
+        try {
+            long valor = Long.parseLong(texto);
+            if (valor > 0) return valor;
+        } catch (NumberFormatException exception) {
+            // Se informa el mismo error para todos los valores invalidos.
+        }
+        throw new BadRequestException("El ID de sucursal debe ser positivo.");
+    }
+
+    private static LocalDate fecha(String texto, String nombre) {
+        if (texto == null) return null;
+        try {
+            return LocalDate.parse(texto);
+        } catch (DateTimeParseException exception) {
+            throw new BadRequestException(nombre + " debe tener el formato yyyy-MM-dd.");
+        }
     }
 }
 

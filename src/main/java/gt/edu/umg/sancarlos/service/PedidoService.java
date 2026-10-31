@@ -4,6 +4,8 @@ import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import gt.edu.umg.sancarlos.dao.PedidoDAO;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDetalleDTO;
+import gt.edu.umg.sancarlos.dto.Pagina;
+import gt.edu.umg.sancarlos.dto.PedidoResumenDTO;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.PedidoConflictoException;
 import gt.edu.umg.sancarlos.exception.PedidoNoEncontradoException;
@@ -12,9 +14,15 @@ import gt.edu.umg.sancarlos.model.Pedido;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Optional;
+import java.time.LocalDate;
+import java.util.Set;
+import gt.edu.umg.sancarlos.resource.Paginacion;
 
 /** Coordina las transacciones de pedido y sus consultas. */
 public class PedidoService {
+
+    private static final Set<String> ESTADOS = Set.of("PENDIENTE", "CONFIRMADO",
+            "EN_PRODUCCION", "LISTO_DESPACHO", "DESPACHADO", "CANCELADO");
 
     private final PedidoDAO pedidoDAO;
 
@@ -60,6 +68,34 @@ public class PedidoService {
             return pedidoDAO.buscarPorId(connection, idPedido);
         } catch (SQLException exception) {
             throw new DataAccessException("No fue posible consultar el pedido", exception);
+        }
+    }
+
+    /** Lista cabeceras sin cargar los renglones de detalle. */
+    public Pagina<PedidoResumenDTO> listar(int pagina, int tamano, String estado,
+            Long idSucursal, LocalDate entregaDesde, LocalDate entregaHasta) {
+        if (!Paginacion.valida(pagina, tamano)) {
+            throw new IllegalArgumentException("La página o el tamaño no son válidos.");
+        }
+        validarEstado(estado);
+        if (idSucursal != null && idSucursal <= 0) {
+            throw new IllegalArgumentException("El ID de sucursal debe ser positivo.");
+        }
+        if (entregaDesde != null && entregaHasta != null
+                && entregaDesde.isAfter(entregaHasta)) {
+            throw new IllegalArgumentException("entregaDesde debe ser anterior o igual a entregaHasta.");
+        }
+        try (Connection connection = ConnectionFactory.getConnection()) {
+            return pedidoDAO.listar(connection, pagina, tamano, estado, idSucursal,
+                    entregaDesde, entregaHasta);
+        } catch (SQLException exception) {
+            throw new DataAccessException("No fue posible listar los pedidos", exception);
+        }
+    }
+
+    public static void validarEstado(String estado) {
+        if (estado != null && !ESTADOS.contains(estado)) {
+            throw new IllegalArgumentException("El estado del pedido no es válido.");
         }
     }
 

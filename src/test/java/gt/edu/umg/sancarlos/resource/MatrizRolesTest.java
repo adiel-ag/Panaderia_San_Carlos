@@ -6,6 +6,10 @@ import gt.edu.umg.sancarlos.dto.RecetaActivaDTO;
 import gt.edu.umg.sancarlos.dto.ActualizarUsuarioDTO;
 import gt.edu.umg.sancarlos.dto.CrearUsuarioDTO;
 import gt.edu.umg.sancarlos.dto.Pagina;
+import gt.edu.umg.sancarlos.dto.PedidoResumenDTO;
+import gt.edu.umg.sancarlos.dto.ProduccionResumenDTO;
+import gt.edu.umg.sancarlos.dto.ProduccionConPedidosDTO;
+import gt.edu.umg.sancarlos.dto.ExistenciaResumenDTO;
 import gt.edu.umg.sancarlos.dto.UsuarioDTO;
 import gt.edu.umg.sancarlos.model.Despacho;
 import gt.edu.umg.sancarlos.model.Pedido;
@@ -23,6 +27,7 @@ import gt.edu.umg.sancarlos.service.AutenticacionService.SesionIniciada;
 import gt.edu.umg.sancarlos.service.CatalogoService;
 import gt.edu.umg.sancarlos.service.UsuarioService;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.annotation.Priority;
@@ -82,13 +87,17 @@ class MatrizRolesTest {
             Map.entry("RecetaResource.buscarRecetaActiva", TODOS),
             Map.entry("PedidoResource.crearPedido", Set.of(ADMIN, SUCURSAL)),
             Map.entry("PedidoResource.buscarPedidoPorId", Set.of(ADMIN, GERENTE, SUCURSAL, PRODUCCION, DESPACHO)),
+            Map.entry("PedidoResource.listarPedidos", Set.of(ADMIN, GERENTE, SUCURSAL, PRODUCCION, DESPACHO)),
             Map.entry("ProduccionResource.crearProduccion", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.asociarPedido", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.generarPlan", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.registrarCantidadProducida", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.finalizarProduccion", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.consultarDetalle", Set.of(ADMIN, GERENTE, PRODUCCION)),
+            Map.entry("ProduccionResource.listarProducciones", Set.of(ADMIN, GERENTE, PRODUCCION)),
+            Map.entry("ProduccionResource.buscarProduccionPorId", Set.of(ADMIN, GERENTE, PRODUCCION)),
             Map.entry("InventarioResource.consultarExistencia", Set.of(ADMIN, GERENTE, PRODUCCION, BODEGA, DESPACHO)),
+            Map.entry("InventarioResource.listarExistencias", Set.of(ADMIN, GERENTE, PRODUCCION, BODEGA, DESPACHO)),
             Map.entry("InventarioResource.registrarEntrada", Set.of(ADMIN, BODEGA)),
             Map.entry("InventarioResource.registrarSalida", Set.of(ADMIN, BODEGA)),
             Map.entry("DespachoResource.despacharPedido", Set.of(ADMIN, DESPACHO)),
@@ -110,13 +119,17 @@ class MatrizRolesTest {
             Map.entry("RecetaResource.buscarRecetaActiva", new CasoHttp("GET", "recetas/productos/33/activa", null)),
             Map.entry("PedidoResource.crearPedido", new CasoHttp("POST", "pedidos", "{\"idSucursal\":1}")),
             Map.entry("PedidoResource.buscarPedidoPorId", new CasoHttp("GET", "pedidos/2", null)),
+            Map.entry("PedidoResource.listarPedidos", new CasoHttp("GET", "pedidos", null)),
             Map.entry("ProduccionResource.crearProduccion", new CasoHttp("POST", "producciones", "{}")),
             Map.entry("ProduccionResource.asociarPedido", new CasoHttp("POST", "producciones/4/pedidos", "{\"idPedido\":2}")),
             Map.entry("ProduccionResource.generarPlan", new CasoHttp("POST", "producciones/4/generar-plan", null)),
             Map.entry("ProduccionResource.registrarCantidadProducida", new CasoHttp("PUT", "producciones/4/productos/33/cantidad-producida", "{\"cantidadProducida\":1}")),
             Map.entry("ProduccionResource.finalizarProduccion", new CasoHttp("POST", "producciones/4/finalizar", null)),
             Map.entry("ProduccionResource.consultarDetalle", new CasoHttp("GET", "producciones/4/detalle", null)),
+            Map.entry("ProduccionResource.listarProducciones", new CasoHttp("GET", "producciones", null)),
+            Map.entry("ProduccionResource.buscarProduccionPorId", new CasoHttp("GET", "producciones/4", null)),
             Map.entry("InventarioResource.consultarExistencia", new CasoHttp("GET", "inventario/productos/33/existencia", null)),
+            Map.entry("InventarioResource.listarExistencias", new CasoHttp("GET", "inventario/existencias", null)),
             Map.entry("InventarioResource.registrarEntrada", new CasoHttp("POST", "inventario/productos/33/entradas", "{\"cantidad\":1}")),
             Map.entry("InventarioResource.registrarSalida", new CasoHttp("POST", "inventario/productos/33/salidas", "{\"cantidad\":1}")),
             Map.entry("DespachoResource.despacharPedido", new CasoHttp("POST", "pedidos/2/despacho", null)),
@@ -254,6 +267,11 @@ class MatrizRolesTest {
                         pedido.setIdSucursal(1);
                         return Optional.of(pedido);
                     }
+
+                    @Override public Pagina<PedidoResumenDTO> listar(int pagina, int tamano,
+                            String estado, Long idSucursal, LocalDate desde, LocalDate hasta) {
+                        return new Pagina<>(List.of(), 0, pagina, tamano);
+                    }
                 }))
                 .register(new DespachoResource(new DespachoService() {
                     @Override
@@ -273,6 +291,11 @@ class MatrizRolesTest {
                     @Override
                     public ExistenciaDTO consultarExistencia(long idProducto) {
                         return new ExistenciaDTO(idProducto, BigDecimal.ONE);
+                    }
+
+                    @Override public Pagina<ExistenciaResumenDTO> listarExistencias(int pagina,
+                            int tamano, String tipo, String nombre, Boolean bajoMinimo) {
+                        return new Pagina<>(List.of(), 0, pagina, tamano);
                     }
 
                     @Override
@@ -312,6 +335,17 @@ class MatrizRolesTest {
                     @Override
                     public List<ProduccionDetalle> consultarDetalle(long idProduccion) {
                         return List.of();
+                    }
+
+                    @Override public Pagina<ProduccionResumenDTO> listar(int pagina, int tamano,
+                            String estado) {
+                        return new Pagina<>(List.of(), 0, pagina, tamano);
+                    }
+
+                    @Override public ProduccionConPedidosDTO buscarPorId(long idProduccion) {
+                        return new ProduccionConPedidosDTO(new ProduccionResumenDTO(
+                                idProduccion, 1, "Usuario", LocalDateTime.of(2026, 10, 30, 9, 0),
+                                "PLANIFICADA", null, 0), List.of());
                     }
                 }))
                 .register(new RolResource(new CatalogoService() {

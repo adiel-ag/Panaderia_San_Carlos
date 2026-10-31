@@ -2,6 +2,11 @@ package gt.edu.umg.sancarlos.service;
 
 import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import gt.edu.umg.sancarlos.dao.ProduccionDAO;
+import gt.edu.umg.sancarlos.dao.PedidoDAO;
+import gt.edu.umg.sancarlos.dto.Pagina;
+import gt.edu.umg.sancarlos.dto.ProduccionResumenDTO;
+import gt.edu.umg.sancarlos.dto.ProduccionConPedidosDTO;
+import gt.edu.umg.sancarlos.resource.Paginacion;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.ProduccionConflictoException;
 import gt.edu.umg.sancarlos.exception.ProduccionNoEncontradaException;
@@ -11,11 +16,16 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Set;
 
 /** Coordina operaciones transaccionales de producción y delega reglas a Oracle. */
 public class ProduccionService {
 
+    private static final Set<String> ESTADOS = Set.of("PLANIFICADA", "EN_PROCESO",
+            "FINALIZADA", "CANCELADA");
+
     private final ProduccionDAO produccionDAO;
+    private final PedidoDAO pedidoDAO;
 
     public ProduccionService() {
         this(new ProduccionDAO());
@@ -23,6 +33,40 @@ public class ProduccionService {
 
     ProduccionService(ProduccionDAO produccionDAO) {
         this.produccionDAO = produccionDAO;
+        this.pedidoDAO = new PedidoDAO();
+    }
+
+    /** Lista producciones sin los pedidos asociados. */
+    public Pagina<ProduccionResumenDTO> listar(int pagina, int tamano, String estado) {
+        if (!Paginacion.valida(pagina, tamano)) {
+            throw new IllegalArgumentException("La página o el tamaño no son válidos.");
+        }
+        validarEstado(estado);
+        try (Connection connection = ConnectionFactory.getConnection()) {
+            return produccionDAO.listar(connection, pagina, tamano, estado);
+        } catch (SQLException exception) {
+            throw new DataAccessException("No fue posible listar las producciones", exception);
+        }
+    }
+
+    /** Consulta una produccion y sus pedidos en una sola conexion de lectura. */
+    public ProduccionConPedidosDTO buscarPorId(long idProduccion) {
+        validarId(idProduccion, "producción");
+        try (Connection connection = ConnectionFactory.getConnection()) {
+            ProduccionResumenDTO resumen = produccionDAO.buscarResumenPorId(connection, idProduccion)
+                    .orElseThrow(() -> new ProduccionNoEncontradaException(
+                            "No existe una producción con ID " + idProduccion, null));
+            return new ProduccionConPedidosDTO(resumen,
+                    pedidoDAO.listarDeProduccion(connection, idProduccion));
+        } catch (SQLException exception) {
+            throw new DataAccessException("No fue posible consultar la producción", exception);
+        }
+    }
+
+    public static void validarEstado(String estado) {
+        if (estado != null && !ESTADOS.contains(estado)) {
+            throw new IllegalArgumentException("El estado de producción no es válido.");
+        }
     }
 
     /** Conserva la operación de creación individual disponible desde la fase anterior. */

@@ -9,6 +9,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -28,6 +29,28 @@ public class InventarioResource {
 
     InventarioResource(InventarioService inventarioService) {
         this.inventarioService = inventarioService;
+    }
+
+    @GET
+    @Path("existencias")
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.PRODUCCION,
+            Roles.BODEGA, Roles.DESPACHO})
+    public Response listarExistencias(@QueryParam("pagina") String pagina,
+            @QueryParam("tamano") String tamano, @QueryParam("tipo") String tipo,
+            @QueryParam("nombre") String nombre,
+            @QueryParam("bajoMinimo") String bajoMinimo) {
+        Paginacion paginacion = Paginacion.de(pagina, tamano);
+        InventarioService.validarFiltros(tipo, nombre);
+        Boolean bajo = booleano(bajoMinimo);
+        return Response.ok(inventarioService.listarExistencias(paginacion.pagina(),
+                paginacion.tamano(), tipo, nombre, bajo)).build();
+    }
+
+    private static Boolean booleano(String valor) {
+        if (valor == null) return null;
+        if ("true".equals(valor)) return true;
+        if ("false".equals(valor)) return false;
+        throw new BadRequestException("bajoMinimo debe ser true o false.");
     }
 
     @GET

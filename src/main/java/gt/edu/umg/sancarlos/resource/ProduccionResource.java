@@ -14,6 +14,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -34,6 +35,23 @@ public class ProduccionResource {
 
     ProduccionResource(ProduccionService produccionService) {
         this.produccionService = produccionService;
+    }
+
+    @GET
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.PRODUCCION})
+    public Response listarProducciones(@QueryParam("pagina") String pagina,
+            @QueryParam("tamano") String tamano, @QueryParam("estado") String estado) {
+        Paginacion paginacion = Paginacion.de(pagina, tamano);
+        ProduccionService.validarEstado(estado);
+        return Response.ok(produccionService.listar(paginacion.pagina(),
+                paginacion.tamano(), estado)).build();
+    }
+
+    @GET
+    @Path("{id}")
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.GERENTE, Roles.PRODUCCION})
+    public Response buscarProduccionPorId(@PathParam("id") String id) {
+        return Response.ok(produccionService.buscarPorId(parsearId(id, "producción"))).build();
     }
 
     @POST

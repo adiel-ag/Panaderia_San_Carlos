@@ -12,6 +12,7 @@ import gt.edu.umg.sancarlos.exception.UsuarioConflictoException;
 import gt.edu.umg.sancarlos.exception.UsuarioNoEncontradoException;
 import gt.edu.umg.sancarlos.exception.UsuarioSolicitudInvalidaException;
 import gt.edu.umg.sancarlos.util.HuellaClave;
+import gt.edu.umg.sancarlos.resource.Paginacion;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -44,7 +45,7 @@ public class UsuarioService {
 
     public Pagina<UsuarioDTO> listar(int pagina, int tamano, String rol,
             String estado, Long idSucursal) {
-        if (pagina < 1 || tamano < 1 || tamano > 100) {
+        if (!Paginacion.valida(pagina, tamano)) {
             throw new UsuarioSolicitudInvalidaException("La página o el tamaño no son válidos", null);
         }
         if (rol != null) validarRol(rol);

@@ -4,6 +4,9 @@ import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import gt.edu.umg.sancarlos.dao.InventarioDAO;
 import gt.edu.umg.sancarlos.dao.ProductoDAO;
 import gt.edu.umg.sancarlos.dto.ExistenciaDTO;
+import gt.edu.umg.sancarlos.dto.ExistenciaResumenDTO;
+import gt.edu.umg.sancarlos.dto.Pagina;
+import gt.edu.umg.sancarlos.resource.Paginacion;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
 import gt.edu.umg.sancarlos.exception.InventarioConflictoException;
 import gt.edu.umg.sancarlos.exception.InventarioNoEncontradoException;
@@ -14,6 +17,37 @@ import java.sql.SQLException;
 
 /** Coordina consultas y movimientos manuales de inventario; Oracle calcula la existencia. */
 public class InventarioService {
+
+    /** Lista productos activos con existencia nula si no existe fila de inventario. */
+    public Pagina<ExistenciaResumenDTO> listarExistencias(int pagina, int tamano,
+            String tipo, String nombre, Boolean bajoMinimo) {
+        if (!Paginacion.valida(pagina, tamano)) {
+            throw new IllegalArgumentException("La página o el tamaño no son válidos.");
+        }
+        validarFiltros(tipo, nombre);
+        String filtroNombre = nombre == null || nombre.isBlank()
+                ? null : escaparLike(nombre.trim());
+        try (Connection connection = ConnectionFactory.getConnection()) {
+            return inventarioDAO.listarExistencias(connection, pagina, tamano, tipo,
+                    filtroNombre, bajoMinimo);
+        } catch (SQLException exception) {
+            throw new DataAccessException("No fue posible listar las existencias", exception);
+        }
+    }
+
+    public static void validarFiltros(String tipo, String nombre) {
+        if (tipo != null && !"INSUMO".equals(tipo) && !"PRODUCTO_FINAL".equals(tipo)) {
+            throw new IllegalArgumentException("El tipo de producto no es válido.");
+        }
+        if (nombre != null && nombre.length() > 100) {
+            throw new IllegalArgumentException("El nombre no puede superar 100 caracteres.");
+        }
+    }
+
+    static String escaparLike(String valor) {
+        return valor.replace("\\", "\\\\").replace("%", "\\%")
+                .replace("_", "\\_");
+    }
 
     /** Los movimientos manuales se registran como ajustes; PRODUCCION y DESPACHO son de sus paquetes. */
     static final String ORIGEN_AJUSTE = "AJUSTE";
