@@ -5,6 +5,11 @@ import DespachoView from '../views/DespachoView.vue'
 import InventarioView from '../views/InventarioView.vue'
 import UsuariosView from '../views/UsuariosView.vue'
 
+// Las pantallas de módulo se cargan al abrirlas: se resuelve la importación diferida.
+async function cargarVista(componente: unknown): Promise<unknown> {
+  return typeof componente === 'function' ? ((await (componente as () => Promise<{ default: unknown }>)()).default) : componente
+}
+
 describe('rutas', () => {
   it('incluye la pagina de inicio', () => {
     expect(router.getRoutes().some((route) => route.path === '/')).toBe(true)
@@ -41,26 +46,26 @@ describe('rutas', () => {
     expect(router.resolve('/produccion/12').name).toBe('produccion-detalle')
   })
 
-  it('muestra Despacho con su pantalla para administrador y despacho', () => {
+  it('muestra Despacho con su pantalla para administrador y despacho', async () => {
     const ruta = router.getRoutes().find((item) => item.name === 'despacho')
     expect(ruta?.path).toBe('/despacho')
-    expect(ruta?.components?.default).toBe(DespachoView)
+    expect(await cargarVista(ruta?.components?.default)).toBe(DespachoView)
     expect(ruta?.meta.roles).toEqual(['ADMINISTRADOR', 'DESPACHO'])
     expect(ruta?.meta.titulo).toBe('Despacho')
   })
 
-  it('muestra Inventario con su pantalla para los roles que lo consultan', () => {
+  it('muestra Inventario con su pantalla para los roles que lo consultan', async () => {
     const ruta = router.getRoutes().find((item) => item.name === 'inventario')
     expect(ruta?.path).toBe('/inventario')
-    expect(ruta?.components?.default).toBe(InventarioView)
+    expect(await cargarVista(ruta?.components?.default)).toBe(InventarioView)
     expect(ruta?.meta.roles).toEqual(['ADMINISTRADOR', 'GERENTE', 'PRODUCCION', 'BODEGA', 'DESPACHO'])
     expect(ruta?.meta.titulo).toBe('Inventario')
   })
 
-  it('muestra Usuarios con su pantalla solo para administrador', () => {
+  it('muestra Usuarios con su pantalla solo para administrador', async () => {
     const ruta = router.getRoutes().find((item) => item.name === 'usuarios')
     expect(ruta?.path).toBe('/usuarios')
-    expect(ruta?.components?.default).toBe(UsuariosView)
+    expect(await cargarVista(ruta?.components?.default)).toBe(UsuariosView)
     expect(ruta?.meta.roles).toEqual(['ADMINISTRADOR'])
     expect(ruta?.meta.titulo).toBe('Usuarios')
   })

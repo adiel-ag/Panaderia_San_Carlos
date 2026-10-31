@@ -7,21 +7,23 @@ import InicioView from '../views/InicioView.vue'
 import LoginView from '../views/LoginView.vue'
 import CambiarClaveView from '../views/CambiarClaveView.vue'
 import PendienteView from '../views/PendienteView.vue'
-import PedidosView from '../views/PedidosView.vue'
-import PedidoDetalleView from '../views/PedidoDetalleView.vue'
-import NuevoPedidoView from '../views/NuevoPedidoView.vue'
-import ProduccionesView from '../views/ProduccionesView.vue'
-import ProduccionDetalleView from '../views/ProduccionDetalleView.vue'
-import DespachoView from '../views/DespachoView.vue'
-import InventarioView from '../views/InventarioView.vue'
-import UsuariosView from '../views/UsuariosView.vue'
 import SinPermisoView from '../views/SinPermisoView.vue'
 import { decidirNavegacion } from './guardia'
 import { menu, type OpcionMenu } from './menu'
 import './meta'
 
+// Cada módulo se descarga al abrirlo por primera vez: el arranque solo trae login, estructura e inicio.
+const PedidosView = () => import('../views/PedidosView.vue')
+const PedidoDetalleView = () => import('../views/PedidoDetalleView.vue')
+const NuevoPedidoView = () => import('../views/NuevoPedidoView.vue')
+const ProduccionesView = () => import('../views/ProduccionesView.vue')
+const ProduccionDetalleView = () => import('../views/ProduccionDetalleView.vue')
+const DespachoView = () => import('../views/DespachoView.vue')
+const InventarioView = () => import('../views/InventarioView.vue')
+const UsuariosView = () => import('../views/UsuariosView.vue')
+
 // Los módulos sin pantalla propia muestran la página pendiente.
-const vistas: Partial<Record<OpcionMenu['nombre'], Component>> = { pedidos: PedidosView, produccion: ProduccionesView, inventario: InventarioView, despacho: DespachoView, usuarios: UsuariosView }
+const vistas: Partial<Record<OpcionMenu['nombre'], Component | (() => Promise<unknown>)>> = { pedidos: PedidosView, produccion: ProduccionesView, inventario: InventarioView, despacho: DespachoView, usuarios: UsuariosView }
 
 const router = createRouter({
   history: createWebHashHistory(),
