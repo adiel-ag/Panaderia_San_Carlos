@@ -56,6 +56,12 @@ export function obtenerInsumos(id: number): Promise<InsumosProduccion> { return 
 export function crearProduccion(observacion: string | null): Promise<{ idProduccion: number }> {
   return api('producciones', { metodo: 'POST', cuerpo: { observacion } })
 }
+export function pedidosDisponibles(fechaEntrega: string): Promise<PedidoResumen[]> {
+  return api('producciones/pedidos-disponibles', { consulta: { fechaEntrega } })
+}
+export function planificarProduccion(solicitud: { fechaEntrega: string; idPedidos: number[]; observacion: string | null }): Promise<{ idProduccion: number }> {
+  return api('producciones/planificar', { metodo: 'POST', cuerpo: solicitud, avisar: true })
+}
 export function asociarPedido(id: number, idPedido: number): Promise<{ idProduccion: number; mensaje: string }> {
   return api(`producciones/${id}/pedidos`, { metodo: 'POST', cuerpo: { idPedido } })
 }

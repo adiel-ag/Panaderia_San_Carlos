@@ -5,12 +5,12 @@ import { reactive } from 'vue'
 import PedidoDetalleView from './PedidoDetalleView.vue'
 import { ApiError } from '../api/cliente'
 
-const { obtenerPedido, obtenerDespacho, listarSucursales, listarProductos, cancelarPedido, toast, confirmar, sesion } = vi.hoisted(() => ({
-  obtenerPedido: vi.fn(), obtenerDespacho: vi.fn(), listarSucursales: vi.fn(), listarProductos: vi.fn(), cancelarPedido: vi.fn(),
+const { obtenerPedido, obtenerDespacho, listarSucursales, listarProductos, cancelarPedido, recibirPedido, toast, confirmar, sesion } = vi.hoisted(() => ({
+  obtenerPedido: vi.fn(), obtenerDespacho: vi.fn(), listarSucursales: vi.fn(), listarProductos: vi.fn(), cancelarPedido: vi.fn(), recibirPedido: vi.fn(),
   toast: vi.fn(), confirmar: vi.fn(), sesion: { rol: 'GERENTE' },
 }))
-const route = reactive({ params: { id: '123' }, query: {} as Record<string, string> })
-vi.mock('../api/pedidos', async (original) => ({ ...(await original<typeof import('../api/pedidos')>()), obtenerPedido, obtenerDespacho, listarSucursales, listarProductos, cancelarPedido }))
+const route = reactive({ params: { id: '123' }, query: {} as Record<string, string>, fullPath: '/pedidos/123' })
+vi.mock('../api/pedidos', async (original) => ({ ...(await original<typeof import('../api/pedidos')>()), obtenerPedido, obtenerDespacho, listarSucursales, listarProductos, cancelarPedido, recibirPedido }))
 vi.mock('../stores/sesion', () => ({ useSesionStore: () => sesion }))
 vi.mock('vue-router', async (original) => ({ ...(await original<typeof import('vue-router')>()), useRoute: () => route }))
 vi.mock('primevue/usetoast', () => ({ useToast: () => ({ add: toast }) }))
@@ -21,24 +21,57 @@ const pedido = { idPedido: 123, idSucursal: 3, idUsuario: 1, fechaEntrega: '2026
   detalles: [{ idPedidoDetalle: 4, idPedido: 123, idProducto: 9, nombreProducto: 'Pan francés', cantidad: 2.5 }] }
 const montajes: Array<{ unmount: () => void }> = []
 function montar() {
-  const wrapper = mount(PedidoDetalleView, { global: { plugins: [PrimeVue], stubs: { RouterLink: true } } })
+  const wrapper = mount(PedidoDetalleView, { global: { plugins: [PrimeVue], stubs: {
+    RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' },
+    Dialog: { props: ['visible'], template: '<div v-if="visible" class="dialogo-stub"><slot /></div>' },
+  } } })
   montajes.push(wrapper)
   return wrapper
 }
 afterEach(() => { montajes.splice(0).forEach((wrapper) => wrapper.unmount()) })
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
   sesion.rol = 'GERENTE'
   obtenerPedido.mockResolvedValue({ ...pedido })
   listarSucursales.mockResolvedValue([{ idSucursal: 3, nombre: 'Centro' }])
   listarProductos.mockResolvedValue([{ idProducto: 9, nombre: 'Pan francés', abreviaturaUnidadMedida: 'kg', nombreUnidadMedida: 'kilogramo', estado: 'ACTIVO' }])
   obtenerDespacho.mockResolvedValue(null)
   cancelarPedido.mockResolvedValue({ ...pedido, estado: 'CANCELADO' })
+  recibirPedido.mockResolvedValue({})
 })
 function botonCancelar(wrapper: ReturnType<typeof montar>) {
   return wrapper.findAll('button').find((boton) => boton.text() === 'Cancelar pedido')
 }
 describe('PedidoDetalleView', () => {
+  it('muestra editar solo fuera de producción', async () => {
+    sesion.rol = 'SUCURSAL'
+    const wrapper = montar()
+    await flushPromises()
+    expect(wrapper.text()).toContain('Editar pedido')
+    expect(wrapper.findAllComponents({ name: 'RouterLink' }).some((enlace) => JSON.stringify(enlace.props('to')).includes('pedido-editar'))).toBe(true)
+    wrapper.unmount()
+    montajes.pop()
+    obtenerPedido.mockResolvedValue({ ...pedido, idProduccion: 2 })
+    const ocupado = montar()
+    await flushPromises()
+    expect(ocupado.text()).not.toContain('Editar pedido')
+  })
+
+  it('registra recepción y muestra el despacho entregado', async () => {
+    sesion.rol = 'SUCURSAL'
+    obtenerPedido.mockResolvedValue({ ...pedido, estado: 'DESPACHADO' })
+    obtenerDespacho.mockResolvedValueOnce({ idPedido: 123, estado: 'DESPACHADO', observacion: null, fechaDespacho: '2026-10-31T10:00:00' })
+      .mockResolvedValueOnce({ idPedido: 123, estado: 'ENTREGADO', observacion: '[Recibido conforme]', fechaDespacho: '2026-10-31T10:00:00' })
+    const wrapper = montar()
+    await flushPromises()
+    await wrapper.findAll('button').find((boton) => boton.text() === 'Confirmar recepción')!.trigger('click')
+    await wrapper.find('.dialogo-stub form').trigger('submit')
+    await flushPromises()
+    expect(recibirPedido).toHaveBeenCalledWith(123, null)
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ summary: 'Recepción registrada' }))
+    expect(wrapper.text()).toContain('Entregado')
+  })
   it('muestra producto, cantidad y unidad sin pedir despacho pendiente', async () => {
     const wrapper = montar()
     await flushPromises()

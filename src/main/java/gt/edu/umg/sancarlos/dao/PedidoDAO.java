@@ -3,6 +3,7 @@ package gt.edu.umg.sancarlos.dao;
 import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDetalleDTO;
+import gt.edu.umg.sancarlos.dto.EditarPedidoDTO;
 import gt.edu.umg.sancarlos.dto.Pagina;
 import gt.edu.umg.sancarlos.dto.PedidoResumenDTO;
 import gt.edu.umg.sancarlos.model.Pedido;
@@ -116,6 +117,100 @@ public class PedidoDAO {
             }
         }
         return pedidos;
+    }
+
+    /** Pedidos confirmados de la fecha, aún libres para planificar. */
+    public List<PedidoResumenDTO> listarDisponibles(Connection connection, LocalDate fechaEntrega)
+            throws SQLException {
+        List<PedidoResumenDTO> pedidos = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(SQL_RESUMEN_SELECT
+                + SQL_RESUMEN_BASE
+                + " WHERE p.estado = 'CONFIRMADO' AND p.fecha_entrega >= ?"
+                + " AND p.fecha_entrega < ? + 1"
+                + " AND NOT EXISTS (SELECT 1 FROM PRODUCCION_PEDIDO pp WHERE pp.id_pedido = p.id_pedido)"
+                + " ORDER BY s.nombre, p.id_pedido")) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setDate(1, java.sql.Date.valueOf(fechaEntrega));
+            statement.setDate(2, java.sql.Date.valueOf(fechaEntrega));
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) pedidos.add(mapearResumen(rows));
+            }
+        }
+        return pedidos;
+    }
+
+    public record PedidoBloqueado(String estado, long idSucursal) { }
+
+    /** Bloquea el pedido antes de comprobar si puede cambiarse. */
+    public Optional<PedidoBloqueado> bloquear(Connection connection, long idPedido)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT estado, id_sucursal FROM PEDIDO WHERE id_pedido = ? FOR UPDATE")) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idPedido);
+            try (ResultSet rows = statement.executeQuery()) {
+                return rows.next() ? Optional.of(new PedidoBloqueado(
+                        rows.getString("estado"), rows.getLong("id_sucursal"))) : Optional.empty();
+            }
+        }
+    }
+
+    public boolean estaEnProduccion(Connection connection, long idPedido) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT 1 FROM PRODUCCION_PEDIDO WHERE id_pedido = ? FETCH FIRST 1 ROWS ONLY")) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idPedido);
+            try (ResultSet rows = statement.executeQuery()) { return rows.next(); }
+        }
+    }
+
+    public record ProductoPedido(String nombre, String tipo, String estado) { }
+
+    public Optional<ProductoPedido> productoParaPedido(Connection connection, long idProducto)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT p.nombre, t.nombre AS tipo, p.estado
+                  FROM PRODUCTO p JOIN TIPO_PRODUCTO t
+                    ON t.id_tipo_producto = p.id_tipo_producto
+                 WHERE p.id_producto = ?
+                """)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idProducto);
+            try (ResultSet rows = statement.executeQuery()) {
+                return rows.next() ? Optional.of(new ProductoPedido(rows.getString("nombre"),
+                        rows.getString("tipo"), rows.getString("estado"))) : Optional.empty();
+            }
+        }
+    }
+
+    /** Reemplaza los renglones dentro de la transacción del servicio. */
+    public void reemplazarDetalles(Connection connection, long idPedido, EditarPedidoDTO solicitud)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "UPDATE PEDIDO SET fecha_entrega = ?, observacion = ? WHERE id_pedido = ?")) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setDate(1, java.sql.Date.valueOf(solicitud.fechaEntrega()));
+            statement.setString(2, solicitud.observacion() == null ? null : solicitud.observacion().trim());
+            statement.setLong(3, idPedido);
+            statement.executeUpdate();
+        }
+        try (PreparedStatement statement = connection.prepareStatement(
+                "DELETE FROM PEDIDO_DETALLE WHERE id_pedido = ?")) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idPedido);
+            statement.executeUpdate();
+        }
+        try (PreparedStatement statement = connection.prepareStatement(
+                "INSERT INTO PEDIDO_DETALLE (id_pedido, id_producto, cantidad) VALUES (?, ?, ?)")) {
+            ConnectionFactory.aplicarTimeout(statement);
+            for (CrearPedidoDetalleDTO detalle : solicitud.detalles()) {
+                statement.setLong(1, idPedido);
+                statement.setLong(2, detalle.getIdProducto());
+                statement.setBigDecimal(3, detalle.getCantidad());
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        }
     }
 
     private static void filtros(PreparedStatement statement, String estado, Long idSucursal,

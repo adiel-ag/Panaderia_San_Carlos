@@ -1,6 +1,9 @@
 package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
+import gt.edu.umg.sancarlos.dto.EditarPedidoDTO;
+import gt.edu.umg.sancarlos.dto.RecepcionPedidoDTO;
+import gt.edu.umg.sancarlos.service.DespachoService;
 import gt.edu.umg.sancarlos.dto.PedidoCreadoDTO;
 import gt.edu.umg.sancarlos.dto.Pagina;
 import gt.edu.umg.sancarlos.dto.PedidoResumenDTO;
@@ -12,6 +15,7 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -31,13 +35,19 @@ import java.time.format.DateTimeParseException;
 public class PedidoResource {
 
     private final PedidoService pedidoService;
+    private final DespachoService despachoService;
 
     public PedidoResource() {
         this(new PedidoService());
     }
 
     PedidoResource(PedidoService pedidoService) {
+        this(pedidoService, new DespachoService());
+    }
+
+    PedidoResource(PedidoService pedidoService, DespachoService despachoService) {
         this.pedidoService = pedidoService;
+        this.despachoService = despachoService;
     }
 
     @GET
@@ -108,6 +118,27 @@ public class PedidoResource {
         long idPedido = parsearId(id);
         return Response.ok(pedidoService.cancelarPedido(idPedido,
                 UsuarioActual.de(seguridad))).build();
+    }
+
+    @PUT
+    @Path("{id}")
+    @jakarta.ws.rs.Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.SUCURSAL})
+    public Response editarPedido(@PathParam("id") String id, EditarPedidoDTO solicitud,
+            @Context SecurityContext seguridad) {
+        if (solicitud == null) throw new BadRequestException("El cuerpo de la solicitud es obligatorio.");
+        return Response.ok(pedidoService.editarPedido(parsearId(id), solicitud,
+                UsuarioActual.de(seguridad))).build();
+    }
+
+    @POST
+    @Path("{id}/recepcion")
+    @jakarta.ws.rs.Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.SUCURSAL})
+    public Response recibirPedido(@PathParam("id") String id, RecepcionPedidoDTO solicitud,
+            @Context SecurityContext seguridad) {
+        return Response.ok(despachoService.recibirPedido(parsearId(id),
+                UsuarioActual.de(seguridad), solicitud == null ? null : solicitud.observacion())).build();
     }
 
     private static long parsearId(String id) {

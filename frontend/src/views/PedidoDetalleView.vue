@@ -5,9 +5,11 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import Message from 'primevue/message'
 import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
+import Textarea from 'primevue/textarea'
 import { ApiError } from '../api/cliente'
 import { formatearFecha, formatearFechaHora } from '../api/fechas'
-import { cancelarPedido, listarProductos, listarSucursales, obtenerDespacho, obtenerPedido, type Despacho, type Pedido, type Producto, type Sucursal } from '../api/pedidos'
+import { cancelarPedido, listarProductos, listarSucursales, obtenerDespacho, obtenerPedido, recibirPedido, type Despacho, type Pedido, type Producto, type Sucursal } from '../api/pedidos'
 import { useSesionStore } from '../stores/sesion'
 import EstadoPedido from '../components/EstadoPedido.vue'
 
@@ -31,12 +33,17 @@ const error = ref<'no-encontrado' | 'general' | null>(null)
 const errorDespacho = ref(false)
 const errorProductos = ref(false)
 const cancelando = ref(false)
+const dialogoRecepcion = ref(false)
+const observacionRecepcion = ref('')
+const recibiendo = ref(false)
 const formatoCantidad = new Intl.NumberFormat('es-GT', { maximumFractionDigits: 2 })
 let version = 0
 // Oracle solo cancela pedidos pendientes o confirmados que aún no están en una producción.
 const puedeCancelar = computed(() => (sesion.rol === 'ADMINISTRADOR' || sesion.rol === 'SUCURSAL')
   && (pedido.value?.estado === 'PENDIENTE' || pedido.value?.estado === 'CONFIRMADO')
   && !pedido.value?.idProduccion)
+const puedeRecibir = computed(() => (sesion.rol === 'ADMINISTRADOR' || sesion.rol === 'SUCURSAL')
+  && pedido.value?.estado === 'DESPACHADO' && despacho.value?.estado === 'DESPACHADO')
 
 // Solo los roles con acceso a Producción reciben el enlace.
 const puedeVerProduccion = computed(() => sesion.rol === 'ADMINISTRADOR' || sesion.rol === 'GERENTE' || sesion.rol === 'PRODUCCION')
@@ -115,6 +122,17 @@ async function ejecutarCancelar(): Promise<void> {
   } catch { /* el cliente ya avisó */ }
   finally { cancelando.value = false }
 }
+async function confirmarRecepcion(): Promise<void> {
+  if (recibiendo.value || observacionRecepcion.value.trim().length > 500) return
+  recibiendo.value = true
+  try {
+    await recibirPedido(id.value, observacionRecepcion.value.trim() || null)
+    dialogoRecepcion.value = false
+    toast.add({ severity: 'success', summary: 'Recepción registrada', life: 5000 })
+    await cargar(true)
+  } catch { /* el cliente ya avisó */ }
+  finally { recibiendo.value = false }
+}
 watch(id, () => { void cargar() }, { immediate: true })
 </script>
 
@@ -122,6 +140,8 @@ watch(id, () => { void cargar() }, { immediate: true })
   <section class="pagina pagina-pedido-detalle">
     <RouterLink :to="volver" class="volver-pedidos">← {{ etiquetaVolver }}</RouterLink>
     <div class="titulo-pedido"><h1>Pedido #{{ id }}</h1><EstadoPedido v-if="pedido" :estado="pedido.estado" />
+      <RouterLink v-if="puedeCancelar" :to="{ name: 'pedido-editar', params: { id }, query: { volver: route.fullPath } }" class="p-button p-button-outlined"><i class="pi pi-pencil" aria-hidden="true" />Editar pedido</RouterLink>
+      <Button v-if="puedeRecibir" label="Confirmar recepción" @click="observacionRecepcion = ''; dialogoRecepcion = true" />
       <Button v-if="puedeCancelar" label="Cancelar pedido" icon="pi pi-times" severity="danger" outlined :loading="cancelando" :disabled="cancelando" @click="pedirCancelar" />
     </div>
     <div v-if="cargando" class="detalle-cargando" aria-label="Cargando pedido">
@@ -149,5 +169,17 @@ watch(id, () => { void cargar() }, { immediate: true })
         <dl v-else class="datos-pedido"><div><dt>Fecha</dt><dd>{{ formatearFechaHora(despacho.fechaDespacho) }}</dd></div><div><dt>Estado</dt><dd>{{ textoEstado(despacho.estado) }}</dd></div><div><dt>Observación</dt><dd :class="{ 'texto-suave': !despacho.observacion }">{{ despacho.observacion ?? '—' }}</dd></div></dl>
       </section>
     </template>
+    <Dialog v-model:visible="dialogoRecepcion" modal header="Confirmar recepción" class="dialogo-produccion">
+      <form class="formulario-dialogo" @submit.prevent="confirmarRecepcion">
+        <div class="campo">
+          <label for="observacion-recepcion">Observación (faltantes o novedades)</label>
+          <Textarea id="observacion-recepcion" v-model="observacionRecepcion" rows="3" :maxlength="500" auto-resize fluid />
+        </div>
+        <div class="acciones-dialogo">
+          <Button label="Cancelar" text type="button" :disabled="recibiendo" @click="dialogoRecepcion = false" />
+          <Button label="Confirmar recepción" type="submit" :loading="recibiendo" :disabled="recibiendo" />
+        </div>
+      </form>
+    </Dialog>
   </section>
 </template>

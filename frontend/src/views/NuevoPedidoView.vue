@@ -11,9 +11,9 @@ import Select from 'primevue/select'
 import Textarea from 'primevue/textarea'
 import { ApiError } from '../api/cliente'
 import { formatearFecha, hoyLocal, sumarDias } from '../api/fechas'
-import { crearPedido, listarProductos, listarSucursales, type Producto, type Sucursal } from '../api/pedidos'
+import { crearPedido, editarPedido, obtenerPedido, listarProductos, listarSucursales, type Producto, type Sucursal } from '../api/pedidos'
 import { useSesionStore } from '../stores/sesion'
-import { construirSolicitud, hayCambios, productosPedibles, validarPedido, type ErroresPedido, type EstadoFormularioPedido, type LineaPedido } from './formularioPedido'
+import { construirSolicitud, formularioDesdePedido, hayCambios, productosPedibles, validarPedido, type ErroresPedido, type EstadoFormularioPedido, type LineaPedido } from './formularioPedido'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,6 +21,8 @@ const sesion = useSesionStore()
 const toast = useToast()
 const confirm = useConfirm()
 const esSucursal = computed(() => sesion.rol === 'SUCURSAL')
+const esEdicion = computed(() => route.name === 'pedido-editar')
+const idEdicion = computed(() => Number(route.params?.id))
 const hoy = hoyLocal()
 const inicial = { idSucursal: esSucursal.value ? sesion.usuario?.idSucursal ?? null : null, fechaEntrega: sumarDias(hoy, 1) }
 const estado = reactive<EstadoFormularioPedido>({ ...inicial, observacion: '', lineas: [{ clave: 1, idProducto: null, cantidad: null }] })
@@ -35,9 +37,12 @@ const intentado = ref(false)
 const tocados = reactive<Record<string, boolean>>({})
 const errores = ref<ErroresPedido>({ lineas: {} })
 const errorServidor = ref('')
+const errorCarga = ref('')
+const original = ref<EstadoFormularioPedido | null>(null)
 let siguienteClave = 2
 
 const volver = computed(() => {
+  if (esEdicion.value) return { name: 'pedido', params: { id: idEdicion.value } }
   const valor = route.query.volver
   return typeof valor === 'string' && /^\/pedidos(?:\?|$)/.test(valor) ? valor : '/pedidos'
 })
@@ -86,6 +91,23 @@ function quitarLinea(clave: number): void {
 }
 async function cargar(): Promise<void> {
   cargando.value = true
+  errorCarga.value = ''
+  if (esEdicion.value) {
+    try {
+      const pedido = await obtenerPedido(idEdicion.value)
+      if (!['PENDIENTE', 'CONFIRMADO'].includes(pedido.estado) || pedido.idProduccion) {
+        errorCarga.value = 'Este pedido ya no se puede editar.'
+      } else {
+        const datos = formularioDesdePedido(pedido)
+        Object.assign(estado, datos)
+        original.value = structuredClone(datos)
+        siguienteClave = datos.lineas.length + 1
+      }
+    } catch (causa) {
+      errorCarga.value = causa instanceof ApiError && causa.status === 404
+        ? 'No se encontró el pedido.' : 'No se pudo cargar el pedido.'
+    }
+  }
   const [resultadoSucursales, resultadoProductos] = await Promise.allSettled([listarSucursales(), listarProductos()])
   if (resultadoSucursales.status === 'fulfilled') {
     sucursales.value = resultadoSucursales.value
@@ -118,23 +140,27 @@ async function registrar(): Promise<void> {
   }
   enviando.value = true
   try {
-    const { idPedido } = await crearPedido(construirSolicitud(estado))
+    const solicitud = construirSolicitud(estado)
+    const idPedido = esEdicion.value ? idEdicion.value : (await crearPedido(solicitud)).idPedido
+    if (esEdicion.value) await editarPedido(idPedido, {
+      fechaEntrega: solicitud.fechaEntrega, observacion: solicitud.observacion, detalles: solicitud.detalles,
+    })
     guardado.value = true
-    toast.add({ severity: 'success', summary: `Pedido #${idPedido} registrado`, life: 5000 })
+    toast.add({ severity: 'success', summary: esEdicion.value ? `Pedido #${idPedido} actualizado` : `Pedido #${idPedido} registrado`, life: 5000 })
     await router.replace({ name: 'pedido', params: { id: idPedido } })
   } catch (causa) {
     if (causa instanceof ApiError && causa.status === 400) errorServidor.value = causa.message
   } finally { enviando.value = false }
 }
 function antesDeCerrar(evento: BeforeUnloadEvent): void {
-  if (!guardado.value && hayCambios(estado, inicial)) evento.preventDefault()
+  if (!guardado.value && hayCambios(estado, inicial, original.value ?? undefined)) evento.preventDefault()
 }
 onMounted(() => { window.addEventListener('beforeunload', antesDeCerrar); void cargar() })
 onUnmounted(() => window.removeEventListener('beforeunload', antesDeCerrar))
 onBeforeRouteLeave(() => {
-  if (guardado.value || !hayCambios(estado, inicial)) return true
+  if (guardado.value || !hayCambios(estado, inicial, original.value ?? undefined)) return true
   return new Promise<boolean>((resolve) => confirm.require({
-    header: '¿Descartar el pedido?', message: 'Se perderán los productos agregados.',
+    header: '¿Descartar los cambios?', message: 'Se perderán los cambios del pedido.',
     acceptLabel: 'Descartar', rejectLabel: 'Seguir editando',
     accept: () => resolve(true), reject: () => resolve(false), onHide: () => resolve(false),
   }))
@@ -143,10 +169,11 @@ onBeforeRouteLeave(() => {
 
 <template>
   <section class="pagina pagina-pedido-nuevo">
-    <RouterLink :to="volver" class="volver-pedidos">← Pedidos</RouterLink>
-    <h1>Nuevo pedido</h1>
-    <p class="subtitulo pregunta-pedido">El pedido queda confirmado al registrarlo.</p>
+    <RouterLink :to="volver" class="volver-pedidos">← {{ esEdicion ? `Pedido #${idEdicion}` : 'Pedidos' }}</RouterLink>
+    <h1>{{ esEdicion ? `Editar pedido #${idEdicion}` : 'Nuevo pedido' }}</h1>
+    <p v-if="!esEdicion" class="subtitulo pregunta-pedido">El pedido queda confirmado al registrarlo.</p>
     <div v-if="cargando" class="detalle-cargando" aria-label="Cargando opciones del pedido"><div class="esqueleto-fila" /><div class="esqueleto-fila" /><div class="esqueleto-fila" /></div>
+    <Message v-else-if="errorCarga" severity="error">{{ errorCarga }}</Message>
     <form v-else class="formulario-pedido" @submit.prevent="registrar">
       <Message v-if="errorServidor" severity="error" aria-live="polite">{{ errorServidor }}</Message>
       <section class="bloque-pedido">
@@ -154,7 +181,7 @@ onBeforeRouteLeave(() => {
         <div class="campos-entrega">
           <div class="campo">
             <label for="sucursal-nueva">Sucursal</label>
-            <span v-if="esSucursal" id="sucursal-nueva" class="valor-sucursal">{{ nombreSucursal }}</span>
+            <span v-if="esSucursal || esEdicion" id="sucursal-nueva" class="valor-sucursal">{{ nombreSucursal }}</span>
             <Select v-else v-model="estado.idSucursal" input-id="sucursal-nueva" :options="sucursales" option-label="nombre" option-value="idSucursal" filter placeholder="Elija una sucursal" fluid :invalid="visible('sucursal') && !!errores.sucursal" @change="tocar('sucursal')" />
             <small v-if="errorSucursales && !esSucursal" class="error-campo">No se pudieron cargar las sucursales. <Button label="Reintentar" text size="small" @click="cargar" /></small>
             <small v-if="visible('sucursal') && errores.sucursal" class="error-campo">{{ errores.sucursal }}</small>
@@ -197,12 +224,12 @@ onBeforeRouteLeave(() => {
             </div>
             <Button icon="pi pi-trash" text type="button" class="quitar-linea" :aria-label="`Quitar ${productos.find((producto) => producto.idProducto === linea.idProducto)?.nombre ?? 'línea'}`" :disabled="estado.lineas.length === 1" @click="quitarLinea(linea.clave)" />
           </div>
-          <Button label="Agregar producto" icon="pi pi-plus" text type="button" class="agregar-producto" @click="agregarLinea" />
+          <Button label="Agregar producto" icon="pi pi-plus" text type="button" class="agregar-producto" :disabled="estado.lineas.length >= 50" @click="agregarLinea" />
         </template>
       </section>
       <footer class="acciones-pedido">
         <p class="texto-suave resumen-pedido" aria-live="polite">{{ resumen }}</p>
-        <div><Button label="Registrar pedido" type="submit" :loading="enviando" :disabled="enviando || errorProductos || !pedibles.length" /><RouterLink :to="volver" class="cancelar-pedido">Cancelar</RouterLink></div>
+        <div><Button :label="esEdicion ? 'Guardar cambios' : 'Registrar pedido'" type="submit" :loading="enviando" :disabled="enviando || errorProductos || !pedibles.length" /><RouterLink :to="volver" class="cancelar-pedido">Cancelar</RouterLink></div>
       </footer>
     </form>
   </section>

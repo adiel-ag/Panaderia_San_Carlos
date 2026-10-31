@@ -6,12 +6,13 @@ import SelectButton from 'primevue/selectbutton'
 import Textarea from 'primevue/textarea'
 import ProduccionesView from './ProduccionesView.vue'
 
-const { listarProducciones, crearProduccion, replace, push, toast, sesion } = vi.hoisted(() => ({
+const { listarProducciones, crearProduccion, pedidosDisponibles, planificarProduccion, replace, push, toast, sesion } = vi.hoisted(() => ({
   listarProducciones: vi.fn(), crearProduccion: vi.fn(), replace: vi.fn(), push: vi.fn(), toast: vi.fn(),
+  pedidosDisponibles: vi.fn(), planificarProduccion: vi.fn(),
   sesion: { rol: 'PRODUCCION' },
 }))
 const route = reactive({ query: {} as Record<string, string>, fullPath: '/produccion' })
-vi.mock('../api/producciones', async (original) => ({ ...(await original<typeof import('../api/producciones')>()), listarProducciones, crearProduccion }))
+vi.mock('../api/producciones', async (original) => ({ ...(await original<typeof import('../api/producciones')>()), listarProducciones, crearProduccion, pedidosDisponibles, planificarProduccion }))
 vi.mock('../stores/sesion', () => ({ useSesionStore: () => sesion }))
 vi.mock('vue-router', async (original) => ({
   ...(await original<typeof import('vue-router')>()), useRoute: () => route, useRouter: () => ({ replace, push }),
@@ -43,9 +44,43 @@ beforeEach(() => {
   sesion.rol = 'PRODUCCION'
   responder({ EN_PROCESO: 0, PLANIFICADA: 0 })
   push.mockResolvedValue(undefined)
+  pedidosDisponibles.mockResolvedValue([])
+  planificarProduccion.mockResolvedValue({ idProduccion: 44 })
 })
 
 describe('ProduccionesView', () => {
+  it('planifica los pedidos marcados y navega al detalle', async () => {
+    pedidosDisponibles.mockResolvedValue([
+      { idPedido: 7, nombreSucursal: 'Centro', cantidadProductos: 2 },
+      { idPedido: 8, nombreSucursal: 'Norte', cantidadProductos: 1 },
+    ])
+    const wrapper = montar()
+    await flushPromises()
+    await wrapper.findAll('button').find((boton) => boton.text() === 'Planificar por fecha')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('#7 · Centro · 2 productos')
+    const casillas = wrapper.findAll('input[type="checkbox"]')
+    expect(casillas).toHaveLength(2)
+    expect((casillas[0]!.element as HTMLInputElement).checked).toBe(true)
+    await casillas[1]!.setValue(false)
+    await wrapper.find('.dialogo-stub form').trigger('submit')
+    await flushPromises()
+    expect(planificarProduccion).toHaveBeenCalledWith(expect.objectContaining({ idPedidos: [7] }))
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ summary: 'Producción #44 planificada con 1 pedidos' }))
+    expect(push).toHaveBeenCalledWith({ name: 'produccion-detalle', params: { id: 44 } })
+  })
+
+  it('explica cuando no hay pedidos y oculta el botón al gerente', async () => {
+    const wrapper = montar()
+    await flushPromises()
+    await wrapper.findAll('button').find((boton) => boton.text() === 'Planificar por fecha')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('No hay pedidos confirmados libres para esa fecha.')
+    sesion.rol = 'GERENTE'
+    const gerente = montar()
+    await flushPromises()
+    expect(gerente.text()).not.toContain('Planificar por fecha')
+  })
   it('consulta la página 1 sin estado y muestra el resumen', async () => {
     responder({ EN_PROCESO: 1, PLANIFICADA: 2 }, { ...vacia, total: 1, items: [produccion] } as never)
     const wrapper = montar()

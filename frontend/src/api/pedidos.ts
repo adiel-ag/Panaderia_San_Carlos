@@ -87,3 +87,9 @@ export function crearPedido(solicitud: SolicitudPedido): Promise<{ idPedido: num
 export function cancelarPedido(id: number): Promise<Pedido> {
   return api(`pedidos/${id}/cancelar`, { metodo: 'POST', avisar: true })
 }
+export function editarPedido(id: number, solicitud: Omit<SolicitudPedido, 'idSucursal'>): Promise<Pedido> {
+  return api(`pedidos/${id}`, { metodo: 'PUT', cuerpo: solicitud, avisar: true })
+}
+export function recibirPedido(id: number, observacion: string | null): Promise<Despacho> {
+  return api(`pedidos/${id}/recepcion`, { metodo: 'POST', cuerpo: { observacion }, avisar: true })
+}

@@ -1,6 +1,7 @@
 package gt.edu.umg.sancarlos.resource;
 
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
+import gt.edu.umg.sancarlos.dto.EditarPedidoDTO;
 import gt.edu.umg.sancarlos.dto.ExistenciaDTO;
 import gt.edu.umg.sancarlos.dto.RecetaActivaDTO;
 import gt.edu.umg.sancarlos.dto.NuevaRecetaDTO;
@@ -108,7 +109,11 @@ class MatrizRolesTest {
             Map.entry("PedidoResource.buscarPedidoPorId", Set.of(ADMIN, GERENTE, SUCURSAL, PRODUCCION, DESPACHO)),
             Map.entry("PedidoResource.listarPedidos", Set.of(ADMIN, GERENTE, SUCURSAL, PRODUCCION, DESPACHO)),
             Map.entry("PedidoResource.cancelarPedido", Set.of(ADMIN, SUCURSAL)),
+            Map.entry("PedidoResource.editarPedido", Set.of(ADMIN, SUCURSAL)),
+            Map.entry("PedidoResource.recibirPedido", Set.of(ADMIN, SUCURSAL)),
             Map.entry("ProduccionResource.crearProduccion", Set.of(ADMIN, PRODUCCION)),
+            Map.entry("ProduccionResource.pedidosDisponibles", Set.of(ADMIN, PRODUCCION)),
+            Map.entry("ProduccionResource.planificar", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.asociarPedido", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.generarPlan", Set.of(ADMIN, PRODUCCION)),
             Map.entry("ProduccionResource.registrarCantidadProducida", Set.of(ADMIN, PRODUCCION)),
@@ -158,7 +163,11 @@ class MatrizRolesTest {
             Map.entry("PedidoResource.buscarPedidoPorId", new CasoHttp("GET", "pedidos/2", null)),
             Map.entry("PedidoResource.listarPedidos", new CasoHttp("GET", "pedidos", null)),
             Map.entry("PedidoResource.cancelarPedido", new CasoHttp("POST", "pedidos/2/cancelar", null)),
+            Map.entry("PedidoResource.editarPedido", new CasoHttp("PUT", "pedidos/2", "{}")),
+            Map.entry("PedidoResource.recibirPedido", new CasoHttp("POST", "pedidos/2/recepcion", "{}")),
             Map.entry("ProduccionResource.crearProduccion", new CasoHttp("POST", "producciones", "{}")),
+            Map.entry("ProduccionResource.pedidosDisponibles", new CasoHttp("GET", "producciones/pedidos-disponibles?fechaEntrega=2026-11-01", null)),
+            Map.entry("ProduccionResource.planificar", new CasoHttp("POST", "producciones/planificar", "{\"fechaEntrega\":\"2026-11-01\",\"idPedidos\":[2]}")),
             Map.entry("ProduccionResource.asociarPedido", new CasoHttp("POST", "producciones/4/pedidos", "{\"idPedido\":2}")),
             Map.entry("ProduccionResource.generarPlan", new CasoHttp("POST", "producciones/4/generar-plan", null)),
             Map.entry("ProduccionResource.registrarCantidadProducida", new CasoHttp("PUT", "producciones/4/productos/33/cantidad-producida", "{\"cantidadProducida\":1}")),
@@ -352,6 +361,15 @@ class MatrizRolesTest {
                         pedido.setEstado("CANCELADO");
                         return pedido;
                     }
+                    @Override public Pedido editarPedido(long idPedido, EditarPedidoDTO solicitud,
+                            UsuarioSesion usuario) {
+                        Pedido pedido = new Pedido();
+                        pedido.setIdPedido(idPedido);
+                        return pedido;
+                    }
+                }, new DespachoService() {
+                    @Override public Despacho recibirPedido(long idPedido, UsuarioSesion usuario,
+                            String observacion) { return new Despacho(); }
                 }))
                 .register(new DespachoResource(new DespachoService() {
                     @Override
@@ -395,6 +413,11 @@ class MatrizRolesTest {
                     }
                 }))
                 .register(new ProduccionResource(new ProduccionService() {
+                    @Override public List<PedidoResumenDTO> pedidosDisponibles(LocalDate fechaEntrega) {
+                        return List.of();
+                    }
+                    @Override public long crearYGenerarPlan(long idUsuario, String observacion,
+                            List<Long> idPedidos) { return 4; }
                     @Override public InsumosProduccionDTO consultarInsumos(long idProduccion) {
                         return new InsumosProduccionDTO(idProduccion, "PLANIFICADA", List.of(),
                                 List.of(), true);

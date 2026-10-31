@@ -11,6 +11,7 @@ import { formatearFecha, hoyLocal, sumarDias } from '../api/fechas'
 import { ESTADOS, etiquetaEstado, listarPedidos, listarSucursales, type Estado, type PedidoResumen, type Sucursal } from '../api/pedidos'
 import { useSesionStore } from '../stores/sesion'
 import EstadoPedido from '../components/EstadoPedido.vue'
+import IrPedido from '../components/IrPedido.vue'
 import { consultaPedidos, leerFiltros, queryFiltros, textoResumenHoy, type Entrega, type FiltrosPedidos } from './filtrosPedidos'
 
 const route = useRoute()
@@ -111,7 +112,7 @@ watch(esSucursal, (oculta) => { if (!oculta) void listarSucursales().then((items
   <section class="pagina pagina-pedidos">
     <div class="cabecera-pedidos">
       <div><h1>Pedidos</h1><p v-if="resumenHoy" class="subtitulo hallazgo-pedidos">{{ resumenHoy }}</p></div>
-      <RouterLink v-if="sesion.rol === 'ADMINISTRADOR' || sesion.rol === 'SUCURSAL'" :to="{ name: 'pedido-nuevo', query: { volver: route.fullPath } }" class="p-button enlace-nuevo-pedido"><i class="pi pi-plus" aria-hidden="true" />Nuevo pedido</RouterLink>
+      <div class="cabecera-acciones"><IrPedido /><RouterLink v-if="sesion.rol === 'ADMINISTRADOR' || sesion.rol === 'SUCURSAL'" :to="{ name: 'pedido-nuevo', query: { volver: route.fullPath } }" class="p-button enlace-nuevo-pedido"><i class="pi pi-plus" aria-hidden="true" />Nuevo pedido</RouterLink></div>
     </div>
     <div class="filtros-pedidos" aria-label="Filtros de pedidos">
       <div class="filtro-entrega">

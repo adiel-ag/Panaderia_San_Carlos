@@ -13,6 +13,39 @@ import java.util.Optional;
 /** Acceso a PKG_DESPACHO y lectura del despacho registrado. */
 public class DespachoDAO {
 
+    public record DespachoBloqueado(String estado, long idSucursal) { }
+
+    public Optional<DespachoBloqueado> bloquearPorPedido(Connection connection, long idPedido)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT d.estado, p.id_sucursal
+                  FROM DESPACHO d JOIN PEDIDO p ON p.id_pedido = d.id_pedido
+                 WHERE d.id_pedido = ? FOR UPDATE OF d.estado
+                """)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idPedido);
+            try (ResultSet rows = statement.executeQuery()) {
+                return rows.next() ? Optional.of(new DespachoBloqueado(
+                        rows.getString("estado"), rows.getLong("id_sucursal"))) : Optional.empty();
+            }
+        }
+    }
+
+    public void registrarRecepcion(Connection connection, long idPedido, String texto)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                UPDATE DESPACHO
+                   SET estado = 'ENTREGADO',
+                       observacion = SUBSTR(TRIM(NVL(observacion, '') || ' ' || ?), 1, 500)
+                 WHERE id_pedido = ?
+                """)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setString(1, texto);
+            statement.setLong(2, idPedido);
+            statement.executeUpdate();
+        }
+    }
+
     private static final String SP_DESPACHAR_PEDIDO =
             "{ call PKG_DESPACHO.SP_DESPACHAR_PEDIDO(?, ?, ?) }";
     private static final String SQL_BUSCAR_POR_PEDIDO = """

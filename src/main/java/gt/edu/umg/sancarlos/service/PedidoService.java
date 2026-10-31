@@ -5,6 +5,7 @@ import gt.edu.umg.sancarlos.dao.BloqueoSucursal;
 import gt.edu.umg.sancarlos.dao.PedidoDAO;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDetalleDTO;
+import gt.edu.umg.sancarlos.dto.EditarPedidoDTO;
 import gt.edu.umg.sancarlos.dto.Pagina;
 import gt.edu.umg.sancarlos.dto.PedidoResumenDTO;
 import gt.edu.umg.sancarlos.exception.DataAccessException;
@@ -18,6 +19,8 @@ import java.sql.SQLException;
 import java.util.Objects;
 import java.util.Optional;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.HashSet;
 import java.util.Set;
 import gt.edu.umg.sancarlos.resource.Paginacion;
 
@@ -113,6 +116,81 @@ public class PedidoService {
             }
         } catch (SQLException exception) {
             throw new DataAccessException("No fue posible cancelar el pedido", exception);
+        }
+    }
+
+    /** Edita cabecera y detalles conservando el estado del pedido. */
+    public Pedido editarPedido(long idPedido, EditarPedidoDTO solicitud, UsuarioSesion usuario) {
+        if (idPedido <= 0 || usuario == null) {
+            throw new IllegalArgumentException("El pedido y el usuario son obligatorios");
+        }
+        validarEdicion(solicitud);
+        try (Connection connection = conexiones.abrir()) {
+            connection.setAutoCommit(false);
+            try {
+                PedidoDAO.PedidoBloqueado bloqueado = pedidoDAO.bloquear(connection, idPedido)
+                        .orElseThrow(() -> noEncontrado(idPedido, null));
+                if (!puedeVer(usuario, bloqueado.idSucursal())) throw noEncontrado(idPedido, null);
+                if (!Set.of("PENDIENTE", "CONFIRMADO").contains(bloqueado.estado())) {
+                    throw new PedidoConflictoException(
+                            "Solo se pueden editar pedidos pendientes o confirmados", null);
+                }
+                if (pedidoDAO.estaEnProduccion(connection, idPedido)) {
+                    throw new PedidoConflictoException(
+                            "El pedido ya está en una producción; quítelo o cancele la producción primero", null);
+                }
+                for (CrearPedidoDetalleDTO detalle : solicitud.detalles()) {
+                    PedidoDAO.ProductoPedido producto = pedidoDAO.productoParaPedido(
+                            connection, detalle.getIdProducto()).orElse(null);
+                    if (producto == null || !"PRODUCTO_FINAL".equals(producto.tipo())
+                            || !"ACTIVO".equals(producto.estado())) {
+                        String nombre = producto == null ? "#" + detalle.getIdProducto() : producto.nombre();
+                        throw new PedidoConflictoException(
+                                "El producto \"" + nombre + "\" no está disponible para pedidos", null);
+                    }
+                }
+                pedidoDAO.reemplazarDetalles(connection, idPedido, solicitud);
+                Pedido actualizado = pedidoDAO.buscarPorId(connection, idPedido)
+                        .orElseThrow(() -> noEncontrado(idPedido, null));
+                connection.commit();
+                return actualizado;
+            } catch (SQLException | RuntimeException exception) {
+                rollback(connection, exception);
+                if (exception instanceof SQLException sql) {
+                    throw traducirErrorOracle(sql, "No fue posible editar el pedido");
+                }
+                throw exception;
+            }
+        } catch (SQLException exception) {
+            throw new DataAccessException("No fue posible editar el pedido", exception);
+        }
+    }
+
+    private static void validarEdicion(EditarPedidoDTO solicitud) {
+        if (solicitud == null) throw new PedidoSolicitudInvalidaException("El cuerpo del pedido es obligatorio", null);
+        if (solicitud.fechaEntrega() == null || solicitud.fechaEntrega().isBefore(
+                LocalDate.now(ZoneId.of("America/Guatemala")))) {
+            throw new PedidoSolicitudInvalidaException("La fecha de entrega no puede estar en el pasado", null);
+        }
+        if (solicitud.observacion() != null && solicitud.observacion().trim().length() > 500) {
+            throw new PedidoSolicitudInvalidaException("La observación no puede superar 500 caracteres", null);
+        }
+        if (solicitud.detalles() == null || solicitud.detalles().isEmpty()
+                || solicitud.detalles().size() > 50) {
+            throw new PedidoSolicitudInvalidaException("El pedido debe incluir entre 1 y 50 productos", null);
+        }
+        Set<Long> productos = new HashSet<>();
+        for (CrearPedidoDetalleDTO detalle : solicitud.detalles()) {
+            if (detalle == null || detalle.getIdProducto() <= 0
+                    || !productos.add(detalle.getIdProducto())) {
+                throw new PedidoSolicitudInvalidaException("Los productos deben ser válidos y distintos", null);
+            }
+            if (detalle.getCantidad() == null || detalle.getCantidad().signum() <= 0
+                    || detalle.getCantidad().scale() > 3
+                    || detalle.getCantidad().precision() - detalle.getCantidad().scale() > 9) {
+                throw new PedidoSolicitudInvalidaException(
+                        "La cantidad debe ser positiva, con hasta 3 decimales", null);
+            }
         }
     }
 

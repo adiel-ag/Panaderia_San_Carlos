@@ -1,4 +1,4 @@
-import type { Producto, SolicitudPedido } from '../api/pedidos'
+import type { Pedido, Producto, SolicitudPedido } from '../api/pedidos'
 
 export interface LineaPedido {
   clave: number
@@ -64,7 +64,20 @@ export function construirSolicitud(estado: EstadoFormularioPedido): SolicitudPed
   }
 }
 
-export function hayCambios(estado: EstadoFormularioPedido, inicial?: Pick<EstadoFormularioPedido, 'idSucursal' | 'fechaEntrega'>): boolean {
+export function formularioDesdePedido(pedido: Pedido): EstadoFormularioPedido {
+  return {
+    idSucursal: pedido.idSucursal, fechaEntrega: pedido.fechaEntrega,
+    observacion: pedido.observacion ?? '',
+    lineas: pedido.detalles.map((detalle, indice) => ({
+      clave: indice + 1, idProducto: detalle.idProducto, cantidad: detalle.cantidad,
+    })),
+  }
+}
+
+export function hayCambios(estado: EstadoFormularioPedido, inicial?: Pick<EstadoFormularioPedido, 'idSucursal' | 'fechaEntrega'>,
+  original?: EstadoFormularioPedido): boolean {
+  if (original) return JSON.stringify({ ...estado, lineas: estado.lineas.map(({ idProducto, cantidad }) => ({ idProducto, cantidad })) })
+    !== JSON.stringify({ ...original, lineas: original.lineas.map(({ idProducto, cantidad }) => ({ idProducto, cantidad })) })
   if (inicial && (estado.idSucursal !== inicial.idSucursal || estado.fechaEntrega !== inicial.fechaEntrega)) return true
   return (!inicial && estado.idSucursal !== null) || estado.observacion.length > 0 || estado.lineas.length !== 1 ||
     estado.lineas.some((linea) => linea.idProducto !== null || linea.cantidad !== null)

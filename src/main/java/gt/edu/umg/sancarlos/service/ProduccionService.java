@@ -4,6 +4,7 @@ import gt.edu.umg.sancarlos.config.ConnectionFactory;
 import gt.edu.umg.sancarlos.dao.ProduccionDAO;
 import gt.edu.umg.sancarlos.dao.PedidoDAO;
 import gt.edu.umg.sancarlos.dto.Pagina;
+import gt.edu.umg.sancarlos.dto.PedidoResumenDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionResumenDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionConPedidosDTO;
 import gt.edu.umg.sancarlos.dto.InsumosProduccionDTO;
@@ -24,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.Set;
+import java.time.LocalDate;
 
 /** Coordina operaciones transaccionales de producción y delega reglas a Oracle. */
 public class ProduccionService {
@@ -173,6 +175,16 @@ public class ProduccionService {
             produccionDAO.generarPlan(connection, idProduccion);
             return idProduccion;
         });
+    }
+
+    public List<PedidoResumenDTO> pedidosDisponibles(LocalDate fechaEntrega) {
+        if (fechaEntrega == null) throw new ProduccionSolicitudInvalidaException(
+                "La fecha de entrega es obligatoria", null);
+        try (Connection connection = conexiones.abrir()) {
+            return pedidoDAO.listarDisponibles(connection, fechaEntrega);
+        } catch (SQLException exception) {
+            throw new DataAccessException("No fue posible consultar pedidos disponibles", exception);
+        }
     }
 
     /** Asocia un pedido confirmado a una producción planificada en su propia transacción. */

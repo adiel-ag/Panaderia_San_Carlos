@@ -8,12 +8,12 @@ import NuevoPedidoView from './NuevoPedidoView.vue'
 import { ApiError } from '../api/cliente'
 import { hoyLocal, sumarDias } from '../api/fechas'
 
-const { crearPedido, listarProductos, listarSucursales, replace, toast, sesion } = vi.hoisted(() => ({
-  crearPedido: vi.fn(), listarProductos: vi.fn(), listarSucursales: vi.fn(), replace: vi.fn(), toast: vi.fn(),
+const { crearPedido, editarPedido, obtenerPedido, listarProductos, listarSucursales, replace, toast, sesion } = vi.hoisted(() => ({
+  crearPedido: vi.fn(), editarPedido: vi.fn(), obtenerPedido: vi.fn(), listarProductos: vi.fn(), listarSucursales: vi.fn(), replace: vi.fn(), toast: vi.fn(),
   sesion: { rol: 'SUCURSAL', usuario: { idSucursal: 3 as number | null } },
 }))
-const route = reactive({ query: {} as Record<string, string> })
-vi.mock('../api/pedidos', async (original) => ({ ...(await original<typeof import('../api/pedidos')>()), crearPedido, listarProductos, listarSucursales }))
+const route = reactive({ query: {} as Record<string, string>, name: 'pedido-nuevo', params: { id: '' } })
+vi.mock('../api/pedidos', async (original) => ({ ...(await original<typeof import('../api/pedidos')>()), crearPedido, editarPedido, obtenerPedido, listarProductos, listarSucursales }))
 vi.mock('../stores/sesion', () => ({ useSesionStore: () => sesion }))
 vi.mock('vue-router', async (original) => ({ ...(await original<typeof import('vue-router')>()), useRoute: () => route, useRouter: () => ({ replace }), onBeforeRouteLeave: vi.fn() }))
 vi.mock('primevue/usetoast', () => ({ useToast: () => ({ add: toast }) }))
@@ -50,13 +50,39 @@ beforeEach(() => {
   sesion.rol = 'SUCURSAL'
   sesion.usuario.idSucursal = 3
   route.query = {}
+  route.name = 'pedido-nuevo'
+  route.params.id = ''
   listarProductos.mockResolvedValue(productos)
   listarSucursales.mockResolvedValue([{ idSucursal: 3, nombre: 'Centro' }])
   crearPedido.mockResolvedValue({ idPedido: 41 })
   replace.mockResolvedValue(undefined)
+  editarPedido.mockResolvedValue({})
 })
 
 describe('NuevoPedidoView', () => {
+  it('precarga un pedido para editar y guarda sin cambiar su sucursal', async () => {
+    route.name = 'pedido-editar'
+    route.params.id = '41'
+    sesion.rol = 'ADMINISTRADOR'
+    obtenerPedido.mockResolvedValue({
+      idPedido: 41, idSucursal: 3, fechaEntrega: sumarDias(hoyLocal(), 1),
+      estado: 'CONFIRMADO', observacion: 'Antes', idProduccion: null,
+      detalles: [{ idPedidoDetalle: 2, idPedido: 41, idProducto: 9, nombreProducto: 'Pan', cantidad: 3 }],
+    })
+    const wrapper = await montar()
+    expect(wrapper.text()).toContain('Editar pedido #41')
+    expect(wrapper.findAllComponents(Select)).toHaveLength(1)
+    expect(wrapper.findComponent(InputNumber).props('modelValue')).toBe(3)
+    await cantidad(wrapper, 0, 4)
+    await registrar(wrapper)
+    expect(editarPedido).toHaveBeenCalledWith(41, {
+      fechaEntrega: sumarDias(hoyLocal(), 1), observacion: 'Antes',
+      detalles: [{ idProducto: 9, cantidad: 4 }],
+    })
+    expect(crearPedido).not.toHaveBeenCalled()
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ summary: 'Pedido #41 actualizado' }))
+    expect(replace).toHaveBeenCalledWith({ name: 'pedido', params: { id: 41 } })
+  })
   it('usa la sucursal del usuario y oculta el selector', async () => {
     const wrapper = await montar()
     expect(wrapper.text()).toContain('Centro')

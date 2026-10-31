@@ -346,3 +346,15 @@ h1, h2 { line-height: 1.2; }
 .dialogo-historial { width: min(1000px, 95vw); }
 .tipo-movimiento { display: inline-block; padding: .2rem .55rem; border-radius: 999px; background: var(--p-surface-100); }
 .tipo-movimiento--salida { font-weight: 700; }
+
+/* Flujo diario */
+.cabecera-acciones { display: flex; align-items: flex-start; gap: .7rem; flex-wrap: wrap; }
+.ir-pedido { display: grid; gap: .2rem; min-width: 12rem; }
+.ir-pedido label { font-size: .8rem; font-weight: 700; }
+.ir-pedido-controles { display: flex; gap: .35rem; }
+.ir-pedido .p-inputtext { width: 8rem; }
+.lista-planificar { display: grid; max-height: 17rem; overflow: auto; border: 1px solid var(--p-content-border-color); }
+.fila-planificar { display: flex; align-items: center; gap: .65rem; padding: .65rem .75rem; cursor: pointer; }
+.fila-planificar + .fila-planificar { border-top: 1px solid var(--p-content-border-color); }
+.fila-planificar input { width: 1rem; height: 1rem; }
+@media (max-width: 767px) { .cabecera-pedidos { align-items: flex-start; } .cabecera-acciones { width: 100%; } }

@@ -19,6 +19,7 @@ import {
 } from '../api/pedidos'
 import { useSesionStore } from '../stores/sesion'
 import EstadoPedido from '../components/EstadoPedido.vue'
+import IrPedido from '../components/IrPedido.vue'
 import { abreviaturaUnidad } from './produccion'
 import {
   consultaDespacho, leerFiltrosDespacho, marcaEntrega, queryFiltrosDespacho, textoResumenDespacho, validarObservacion,
@@ -175,6 +176,7 @@ void listarSucursales().then((items) => { sucursales.value = items }).catch(() =
   <section ref="seccion" class="pagina pagina-pedidos pagina-despacho">
     <div class="cabecera-pedidos">
       <div><h1 ref="titulo" tabindex="-1">Despacho</h1><p v-if="resumen" class="subtitulo hallazgo-pedidos">{{ resumen }}</p></div>
+      <IrPedido />
     </div>
     <div class="filtros-pedidos" aria-label="Filtros de despacho">
       <div class="filtro-entrega">

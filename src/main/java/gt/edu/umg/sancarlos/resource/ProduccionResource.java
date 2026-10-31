@@ -3,6 +3,7 @@ package gt.edu.umg.sancarlos.resource;
 import gt.edu.umg.sancarlos.dto.AsociarPedidoDTO;
 import gt.edu.umg.sancarlos.dto.CantidadProducidaDTO;
 import gt.edu.umg.sancarlos.dto.CrearProduccionDTO;
+import gt.edu.umg.sancarlos.dto.PlanificarProduccionDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionCreadaDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionOperacionDTO;
 import gt.edu.umg.sancarlos.service.ProduccionService;
@@ -21,6 +22,9 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriInfo;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.HashSet;
 
 /** Endpoints REST de producción; las reglas de negocio las resuelve PKG_PRODUCCION. */
 @Path("/producciones")
@@ -66,6 +70,40 @@ public class ProduccionResource {
                         .path(Long.toString(idProduccion)).build())
                 .entity(new ProduccionCreadaDTO(idProduccion))
                 .build();
+    }
+
+    @GET
+    @Path("pedidos-disponibles")
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.PRODUCCION})
+    public Response pedidosDisponibles(@QueryParam("fechaEntrega") String fechaEntrega) {
+        try {
+            return Response.ok(produccionService.pedidosDisponibles(LocalDate.parse(fechaEntrega))).build();
+        } catch (DateTimeParseException | NullPointerException exception) {
+            throw new BadRequestException("fechaEntrega debe tener el formato yyyy-MM-dd.");
+        }
+    }
+
+    @POST
+    @Path("planificar")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed({Roles.ADMINISTRADOR, Roles.PRODUCCION})
+    public Response planificar(PlanificarProduccionDTO solicitud, @Context UriInfo uriInfo,
+            @Context SecurityContext seguridad) {
+        requerirCuerpo(solicitud);
+        if (solicitud.fechaEntrega() == null) {
+            throw new BadRequestException("La fecha de entrega es obligatoria.");
+        }
+        if (solicitud.idPedidos() == null || solicitud.idPedidos().isEmpty()
+                || solicitud.idPedidos().size() > 100
+                || solicitud.idPedidos().stream().anyMatch(id -> id == null || id <= 0)
+                || new HashSet<>(solicitud.idPedidos()).size() != solicitud.idPedidos().size()) {
+            throw new BadRequestException("Seleccione entre 1 y 100 pedidos distintos.");
+        }
+        long idProduccion = produccionService.crearYGenerarPlan(UsuarioActual.id(seguridad),
+                solicitud.observacion(), solicitud.idPedidos());
+        return Response.created(uriInfo.getBaseUriBuilder().path("producciones")
+                        .path(Long.toString(idProduccion)).build())
+                .entity(new ProduccionCreadaDTO(idProduccion)).build();
     }
 
     @POST
