@@ -107,6 +107,8 @@ public class UsuarioService {
         validarSucursal(solicitud.idSucursal());
         return transaccion(connection -> {
             long rol = resolverRol(connection, solicitud.rol());
+            // Mismo orden que al reactivar: usuario y luego sucursal.
+            BloqueoSucursal.bloquearUsuario(connection, id);
             BloqueoSucursal.bloquear(connection, solicitud.idSucursal());
             usuarioDAO.actualizar(connection, id, solicitud.nombre().trim(), rol,
                     solicitud.idSucursal());

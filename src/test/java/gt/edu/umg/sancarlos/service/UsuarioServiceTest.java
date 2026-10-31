@@ -39,14 +39,16 @@ class UsuarioServiceTest {
                 () -> servicio().cambiarEstado(5, "ACTIVO"));
 
         assertTrue(error.getMessage().contains("sucursal de este usuario está inactiva"));
-        assertEquals(List.of("abrir", "autoCommit:false", "bloquear-sucursal", "rollback", "close"), eventos);
+        // Primero el usuario, luego su sucursal.
+        assertEquals(List.of("abrir", "autoCommit:false", "bloquear-sucursal", "bloquear-sucursal",
+                "rollback", "close"), eventos);
     }
 
     @Test
     void reactivaSiLaSucursalEstaActivaODesactivaSinConsultarla() {
         estadoSucursal = "ACTIVO";
         servicio().cambiarEstado(5, "ACTIVO");
-        assertEquals(List.of("abrir", "autoCommit:false", "bloquear-sucursal", "estado:ACTIVO",
+        assertEquals(List.of("abrir", "autoCommit:false", "bloquear-sucursal", "bloquear-sucursal", "estado:ACTIVO",
                 "leer", "commit", "close"), eventos);
 
         eventos.clear();
@@ -145,6 +147,8 @@ class UsuarioServiceTest {
                         yield hay;
                     }
                     case "getString" -> estadoSucursal;
+                    case "getLong" -> 3L;
+                    case "wasNull" -> false;
                     default -> null;
                 });
         return (java.sql.PreparedStatement) Proxy.newProxyInstance(

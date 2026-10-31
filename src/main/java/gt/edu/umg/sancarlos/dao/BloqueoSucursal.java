@@ -16,9 +16,10 @@ public final class BloqueoSucursal {
 
     private static final String SQL_SUCURSAL =
             "SELECT id_sucursal FROM SUCURSAL WHERE id_sucursal = ? FOR UPDATE";
-    private static final String SQL_SUCURSAL_DE_USUARIO =
-            "SELECT s.estado FROM SUCURSAL s JOIN USUARIO u ON u.id_sucursal = s.id_sucursal "
-            + "WHERE u.id_usuario = ? FOR UPDATE OF s.id_sucursal";
+    private static final String SQL_USUARIO =
+            "SELECT id_sucursal FROM USUARIO WHERE id_usuario = ? FOR UPDATE";
+    private static final String SQL_ESTADO_SUCURSAL =
+            "SELECT estado FROM SUCURSAL WHERE id_sucursal = ? FOR UPDATE";
 
     private BloqueoSucursal() {
     }
@@ -30,14 +31,34 @@ public final class BloqueoSucursal {
         }
     }
 
-    /** Bloquea la sucursal del usuario y devuelve su estado; null si no tiene sucursal. */
+    /**
+     * Bloquea primero al usuario (nadie le cambia la sucursal mientras tanto) y
+     * despues su sucursal; devuelve el estado de esta o null si no tiene. Siempre
+     * en ese orden, tambien al editar, para que dos operaciones no se esperen
+     * mutuamente.
+     */
     public static String bloquearDeUsuario(Connection connection, long idUsuario)
             throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(SQL_SUCURSAL_DE_USUARIO)) {
+        Long idSucursal = bloquearUsuario(connection, idUsuario);
+        if (idSucursal == null) return null;
+        try (PreparedStatement statement = connection.prepareStatement(SQL_ESTADO_SUCURSAL)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idSucursal);
+            try (ResultSet rows = statement.executeQuery()) {
+                return rows.next() ? rows.getString(1) : null;
+            }
+        }
+    }
+
+    /** Bloquea la fila del usuario y devuelve su sucursal actual (null si no tiene). */
+    public static Long bloquearUsuario(Connection connection, long idUsuario) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(SQL_USUARIO)) {
             ConnectionFactory.aplicarTimeout(statement);
             statement.setLong(1, idUsuario);
             try (ResultSet rows = statement.executeQuery()) {
-                return rows.next() ? rows.getString(1) : null;
+                if (!rows.next()) return null;
+                long id = rows.getLong(1);
+                return rows.wasNull() ? null : id;
             }
         }
     }
