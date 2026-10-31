@@ -12,6 +12,7 @@ import { formatearFecha, formatearFechaHora } from '../api/fechas'
 import { cancelarPedido, listarProductos, listarSucursales, obtenerDespacho, obtenerPedido, recibirPedido, type Despacho, type Pedido, type Producto, type Sucursal } from '../api/pedidos'
 import { useSesionStore } from '../stores/sesion'
 import EstadoPedido from '../components/EstadoPedido.vue'
+import { puedeImprimirDespacho } from './hojas'
 
 const route = useRoute()
 const sesion = useSesionStore()
@@ -44,6 +45,8 @@ const puedeCancelar = computed(() => (sesion.rol === 'ADMINISTRADOR' || sesion.r
   && !pedido.value?.idProduccion)
 const puedeRecibir = computed(() => (sesion.rol === 'ADMINISTRADOR' || sesion.rol === 'SUCURSAL')
   && pedido.value?.estado === 'DESPACHADO' && despacho.value?.estado === 'DESPACHADO')
+
+const puedeImprimir = computed(() => puedeImprimirDespacho(sesion.rol, pedido.value?.estado))
 
 // Solo los roles con acceso a Producción reciben el enlace.
 const puedeVerProduccion = computed(() => sesion.rol === 'ADMINISTRADOR' || sesion.rol === 'GERENTE' || sesion.rol === 'PRODUCCION')
@@ -141,6 +144,7 @@ watch(id, () => { void cargar() }, { immediate: true })
     <RouterLink :to="volver" class="volver-pedidos">← {{ etiquetaVolver }}</RouterLink>
     <div class="titulo-pedido"><h1>Pedido #{{ id }}</h1><EstadoPedido v-if="pedido" :estado="pedido.estado" />
       <RouterLink v-if="puedeCancelar" :to="{ name: 'pedido-editar', params: { id }, query: { volver: route.fullPath } }" class="p-button p-button-outlined"><i class="pi pi-pencil" aria-hidden="true" />Editar pedido</RouterLink>
+      <RouterLink v-if="puedeImprimir" :to="{ name: 'hoja-despacho', params: { id }, query: route.query.volver ? { volver: route.query.volver } : {} }" class="p-button p-button-text boton-imprimir"><i class="pi pi-print" aria-hidden="true" />Imprimir hoja de despacho</RouterLink>
       <Button v-if="puedeRecibir" label="Confirmar recepción" @click="observacionRecepcion = ''; dialogoRecepcion = true" />
       <Button v-if="puedeCancelar" label="Cancelar pedido" icon="pi pi-times" severity="danger" outlined :loading="cancelando" :disabled="cancelando" @click="pedirCancelar" />
     </div>

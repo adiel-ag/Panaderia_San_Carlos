@@ -44,6 +44,20 @@ function botonCancelar(wrapper: ReturnType<typeof montar>) {
   return wrapper.findAll('button').find((boton) => boton.text() === 'Cancelar pedido')
 }
 describe('PedidoDetalleView', () => {
+  it.each([
+    ['DESPACHO', 'LISTO_DESPACHO', true], ['GERENTE', 'DESPACHADO', true], ['ADMINISTRADOR', 'LISTO_DESPACHO', true],
+    ['SUCURSAL', 'DESPACHADO', false], ['PRODUCCION', 'LISTO_DESPACHO', false], ['DESPACHO', 'EN_PRODUCCION', false],
+  ])('con %s y estado %s muestra la hoja de despacho: %s', async (rol, estado, visible) => {
+    sesion.rol = rol
+    obtenerPedido.mockResolvedValue({ ...pedido, estado })
+    const wrapper = montar()
+    await flushPromises()
+    expect(wrapper.text().includes('Imprimir hoja de despacho')).toBe(visible)
+    const enlace = wrapper.findAllComponents({ name: 'RouterLink' }).find((item) => JSON.stringify(item.props('to')).includes('hoja-despacho'))
+    expect(!!enlace).toBe(visible)
+    if (enlace) expect(enlace.props('to')).toEqual({ name: 'hoja-despacho', params: { id: 123 }, query: {} })
+  })
+
   it('muestra editar solo fuera de producción', async () => {
     sesion.rol = 'SUCURSAL'
     const wrapper = montar()

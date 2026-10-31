@@ -1,7 +1,7 @@
 import { ROLES, type Rol } from '../api/tipos'
 
 export type OpcionMenu = {
-  nombre: 'inicio' | 'pedidos' | 'produccion' | 'recetas' | 'inventario' | 'productos' | 'despacho' | 'usuarios' | 'sucursales'
+  nombre: 'inicio' | 'pedidos' | 'produccion' | 'recetas' | 'inventario' | 'productos' | 'despacho' | 'reportes' | 'usuarios' | 'sucursales'
   etiqueta: string
   icono: string
   descripcion: string
@@ -16,6 +16,7 @@ export const menu: readonly OpcionMenu[] = [
   { nombre: 'inventario', etiqueta: 'Inventario', icono: 'pi pi-box', descripcion: 'Consulta existencias y registra entradas y salidas.', roles: ['ADMINISTRADOR', 'GERENTE', 'PRODUCCION', 'BODEGA', 'DESPACHO'] },
   { nombre: 'productos', etiqueta: 'Productos', icono: 'pi pi-tags', descripcion: 'Da de alta y ajusta los productos e insumos.', roles: ['ADMINISTRADOR', 'GERENTE', 'PRODUCCION', 'BODEGA'] },
   { nombre: 'despacho', etiqueta: 'Despacho', icono: 'pi pi-truck', descripcion: 'Despacha los pedidos listos a cada sucursal.', roles: ['ADMINISTRADOR', 'DESPACHO'] },
+  { nombre: 'reportes', etiqueta: 'Reportes', icono: 'pi pi-chart-bar', descripcion: 'Consulta pedidos, producción y consumo por fechas.', roles: ['ADMINISTRADOR', 'GERENTE'] },
   { nombre: 'usuarios', etiqueta: 'Usuarios', icono: 'pi pi-users', descripcion: 'Administra cuentas, roles y contraseñas.', roles: ['ADMINISTRADOR'] },
   { nombre: 'sucursales', etiqueta: 'Sucursales', icono: 'pi pi-building', descripcion: 'Administra las tiendas que hacen pedidos.', roles: ['ADMINISTRADOR'] },
 ]

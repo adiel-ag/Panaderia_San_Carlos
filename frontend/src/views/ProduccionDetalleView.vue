@@ -19,6 +19,7 @@ import { useSesionStore } from '../stores/sesion'
 import EstadoPedido from '../components/EstadoPedido.vue'
 import EstadoProduccion from '../components/EstadoProduccion.vue'
 import { filasPlan, pedidosDisponibles, puedeFinalizar, validarCantidad, type FilaPlan } from './produccion'
+import { puedeImprimirProduccion } from './hojas'
 
 const route = useRoute()
 const sesion = useSesionStore()
@@ -56,6 +57,7 @@ let version = 0
 const estado = computed(() => produccion.value?.estado ?? null)
 const puedeCancelar = computed(() => puedeCambiar.value && estado.value === 'PLANIFICADA')
 const editable = computed(() => puedeCambiar.value && estado.value === 'EN_PROCESO')
+const puedeImprimir = computed(() => puedeImprimirProduccion(sesion.rol, estado.value ?? undefined, produccion.value?.pedidos.length ?? 0))
 const conPlan = computed(() => estado.value === 'EN_PROCESO' || estado.value === 'FINALIZADA')
 const mostrarInsumos = computed(() => estado.value === 'EN_PROCESO' ||
   (estado.value === 'PLANIFICADA' && !!produccion.value?.pedidos.length))
@@ -237,6 +239,7 @@ watch(id, () => { void cargar() }, { immediate: true })
   <section class="pagina pagina-pedido-detalle pagina-produccion-detalle">
     <RouterLink :to="volver" class="volver-pedidos">← Producción</RouterLink>
     <div class="titulo-pedido"><h1>Producción #{{ id }}</h1><EstadoProduccion v-if="produccion" :estado="produccion.estado" />
+      <RouterLink v-if="puedeImprimir" :to="{ name: 'hoja-produccion', params: { id } }" class="p-button p-button-text boton-imprimir"><i class="pi pi-print" aria-hidden="true" />Imprimir hoja de producción</RouterLink>
       <Button v-if="puedeCancelar" label="Cancelar producción" icon="pi pi-times" severity="danger" outlined :loading="accion === 'cancelar'" :disabled="accion !== null" @click="pedirCancelar" />
     </div>
     <div v-if="cargando" class="detalle-cargando" aria-label="Cargando producción">

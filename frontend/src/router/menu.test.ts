@@ -3,8 +3,8 @@ import { ROLES, type Rol } from '../api/tipos'
 import { menu, opcionesMenu } from './menu'
 
 const visibles: Record<Rol, string[]> = {
-  ADMINISTRADOR: ['inicio', 'pedidos', 'produccion', 'recetas', 'inventario', 'productos', 'despacho', 'usuarios', 'sucursales'],
-  GERENTE: ['inicio', 'pedidos', 'produccion', 'recetas', 'inventario', 'productos'],
+  ADMINISTRADOR: ['inicio', 'pedidos', 'produccion', 'recetas', 'inventario', 'productos', 'despacho', 'reportes', 'usuarios', 'sucursales'],
+  GERENTE: ['inicio', 'pedidos', 'produccion', 'recetas', 'inventario', 'productos', 'reportes'],
   SUCURSAL: ['inicio', 'pedidos'],
   PRODUCCION: ['inicio', 'pedidos', 'produccion', 'recetas', 'inventario', 'productos'],
   BODEGA: ['inicio', 'inventario', 'productos'],
@@ -30,6 +30,15 @@ describe('opcionesMenu', () => {
     expect(menu[indice]).toEqual({
       nombre: 'recetas', etiqueta: 'Recetas', icono: 'pi pi-book', descripcion: 'Define el rendimiento y los ingredientes de cada producto.',
       roles: ['ADMINISTRADOR', 'GERENTE', 'PRODUCCION'],
+    })
+  })
+
+  it('coloca Reportes antes de Usuarios, solo para Administración y Gerencia', () => {
+    const indice = menu.findIndex((opcion) => opcion.nombre === 'reportes')
+    expect(menu[indice + 1]?.nombre).toBe('usuarios')
+    expect(menu[indice]).toEqual({
+      nombre: 'reportes', etiqueta: 'Reportes', icono: 'pi pi-chart-bar', descripcion: 'Consulta pedidos, producción y consumo por fechas.',
+      roles: ['ADMINISTRADOR', 'GERENTE'],
     })
   })
 

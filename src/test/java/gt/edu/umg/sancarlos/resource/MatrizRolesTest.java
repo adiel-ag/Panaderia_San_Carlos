@@ -18,6 +18,12 @@ import gt.edu.umg.sancarlos.dto.ExistenciaResumenDTO;
 import gt.edu.umg.sancarlos.dto.InsumosProduccionDTO;
 import gt.edu.umg.sancarlos.dto.MovimientoDTO;
 import gt.edu.umg.sancarlos.dto.UsuarioDTO;
+import gt.edu.umg.sancarlos.dto.AlertasDTO;
+import gt.edu.umg.sancarlos.dto.ConsumoInsumoDTO;
+import gt.edu.umg.sancarlos.dto.ReportePedidosSucursalDTO;
+import gt.edu.umg.sancarlos.dto.ReporteProduccionDiaDTO;
+import gt.edu.umg.sancarlos.service.AlertaService;
+import gt.edu.umg.sancarlos.service.ReporteService;
 import gt.edu.umg.sancarlos.dto.ProductoSolicitudDTO;
 import gt.edu.umg.sancarlos.dto.SucursalSolicitudDTO;
 import gt.edu.umg.sancarlos.dto.SucursalAdminDTO;
@@ -143,7 +149,11 @@ class MatrizRolesTest {
             Map.entry("UsuarioResource.actualizarUsuario", Set.of(ADMIN)),
             Map.entry("UsuarioResource.cambiarEstado", Set.of(ADMIN)),
             Map.entry("UsuarioResource.desbloquear", Set.of(ADMIN)),
-            Map.entry("UsuarioResource.asignarClave", Set.of(ADMIN)));
+            Map.entry("UsuarioResource.asignarClave", Set.of(ADMIN)),
+            Map.entry("ReporteResource.pedidosPorSucursal", Set.of(ADMIN, GERENTE)),
+            Map.entry("ReporteResource.produccionPorDia", Set.of(ADMIN, GERENTE)),
+            Map.entry("ReporteResource.consumoInsumos", Set.of(ADMIN, GERENTE)),
+            Map.entry("AlertaResource.consultar", TODOS));
 
     private static final Map<String, CasoHttp> CASOS_HTTP = Map.ofEntries(
             Map.entry("ProductoResource.listarProductos", new CasoHttp("GET", "productos", null)),
@@ -197,7 +207,11 @@ class MatrizRolesTest {
             Map.entry("UsuarioResource.actualizarUsuario", new CasoHttp("PUT", "usuarios/7", "{\"nombre\":\"Ana\",\"rol\":\"GERENTE\"}")),
             Map.entry("UsuarioResource.cambiarEstado", new CasoHttp("PUT", "usuarios/7/estado", "{\"estado\":\"ACTIVO\"}")),
             Map.entry("UsuarioResource.desbloquear", new CasoHttp("POST", "usuarios/7/desbloquear", null)),
-            Map.entry("UsuarioResource.asignarClave", new CasoHttp("PUT", "usuarios/7/clave", "{\"password\":\"clave-de-prueba\"}")));
+            Map.entry("UsuarioResource.asignarClave", new CasoHttp("PUT", "usuarios/7/clave", "{\"password\":\"clave-de-prueba\"}")),
+            Map.entry("ReporteResource.pedidosPorSucursal", new CasoHttp("GET", "reportes/pedidos-por-sucursal?desde=2026-10-01&hasta=2026-10-31", null)),
+            Map.entry("ReporteResource.produccionPorDia", new CasoHttp("GET", "reportes/produccion-por-dia?desde=2026-10-01&hasta=2026-10-31", null)),
+            Map.entry("ReporteResource.consumoInsumos", new CasoHttp("GET", "reportes/consumo-insumos?desde=2026-10-01&hasta=2026-10-31", null)),
+            Map.entry("AlertaResource.consultar", new CasoHttp("GET", "alertas", null)));
 
     @Test
     void cadaRolRecibe403OExitoEnCadaEndpointPorHttp() {
@@ -499,6 +513,19 @@ class MatrizRolesTest {
                     @Override public UsuarioDTO actualizar(long id, ActualizarUsuarioDTO solicitud) { return usuario(); }
                     @Override public UsuarioDTO cambiarEstado(long id, String estado) { return usuario(); }
                     @Override public UsuarioDTO desbloquear(long id) { return usuario(); }
+                }))
+                .register(new ReporteResource(new ReporteService() {
+                    @Override public List<ReportePedidosSucursalDTO> pedidosPorSucursal(
+                            LocalDate desde, LocalDate hasta) { return List.of(); }
+                    @Override public List<ReporteProduccionDiaDTO> produccionPorDia(
+                            LocalDate desde, LocalDate hasta) { return List.of(); }
+                    @Override public List<ConsumoInsumoDTO> consumoInsumos(
+                            LocalDate desde, LocalDate hasta) { return List.of(); }
+                }))
+                .register(new AlertaResource(new AlertaService() {
+                    @Override public AlertasDTO alertas(UsuarioSesion usuario) {
+                        return new AlertasDTO(0, 0, 0);
+                    }
                 }))
                 .register(new AbstractBinder() {
                     @Override protected void configure() {

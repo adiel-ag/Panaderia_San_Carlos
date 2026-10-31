@@ -15,7 +15,7 @@ class DaoQueryTimeoutTest {
         Path carpeta = Path.of("src/main/java/gt/edu/umg/sancarlos/dao");
         List<String> daos = List.of("DespachoDAO", "InventarioDAO", "PedidoDAO",
                 "ProduccionDAO", "ProductoDAO", "RecetaDAO", "SeguridadDAO",
-                "UsuarioDAO", "CatalogoDAO");
+                "UsuarioDAO", "CatalogoDAO", "ReporteDAO");
         int total = 0;
         for (String dao : daos) {
             String fuente = Files.readString(carpeta.resolve(dao + ".java"));

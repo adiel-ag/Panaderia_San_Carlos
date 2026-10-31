@@ -26,9 +26,12 @@ const InventarioView = () => import('../views/InventarioView.vue')
 const UsuariosView = () => import('../views/UsuariosView.vue')
 const ProductosView = () => import('../views/ProductosView.vue')
 const SucursalesView = () => import('../views/SucursalesView.vue')
+const ReportesView = () => import('../views/ReportesView.vue')
+const HojaDespachoView = () => import('../views/HojaDespachoView.vue')
+const HojaProduccionView = () => import('../views/HojaProduccionView.vue')
 
 // Los módulos sin pantalla propia muestran la página pendiente.
-const vistas: Partial<Record<OpcionMenu['nombre'], Component | (() => Promise<unknown>)>> = { pedidos: PedidosView, produccion: ProduccionesView, recetas: RecetasView, inventario: InventarioView, productos: ProductosView, despacho: DespachoView, usuarios: UsuariosView, sucursales: SucursalesView }
+const vistas: Partial<Record<OpcionMenu['nombre'], Component | (() => Promise<unknown>)>> = { pedidos: PedidosView, produccion: ProduccionesView, recetas: RecetasView, inventario: InventarioView, productos: ProductosView, despacho: DespachoView, reportes: ReportesView, usuarios: UsuariosView, sucursales: SucursalesView }
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -47,6 +50,10 @@ const router = createRouter({
           meta: { titulo: 'Editar pedido', roles: ['ADMINISTRADOR', 'SUCURSAL'] } },
         { path: 'pedidos/:id(\\d+)', name: 'pedido', component: PedidoDetalleView,
           meta: { titulo: 'Pedido', roles: menu.find((opcion) => opcion.nombre === 'pedidos')!.roles } },
+        { path: 'pedidos/:id(\\d+)/hoja', name: 'hoja-despacho', component: HojaDespachoView,
+          meta: { titulo: 'Hoja de despacho', roles: ['ADMINISTRADOR', 'DESPACHO', 'GERENTE'] } },
+        { path: 'produccion/:id(\\d+)/hoja', name: 'hoja-produccion', component: HojaProduccionView,
+          meta: { titulo: 'Hoja de producción', roles: ['ADMINISTRADOR', 'PRODUCCION', 'GERENTE'] } },
         { path: 'produccion/:id(\\d+)', name: 'produccion-detalle', component: ProduccionDetalleView,
           meta: { titulo: 'Producción', roles: menu.find((opcion) => opcion.nombre === 'produccion')!.roles } },
         { path: 'recetas/:idProducto(\\d+)', name: 'receta', component: RecetaView,

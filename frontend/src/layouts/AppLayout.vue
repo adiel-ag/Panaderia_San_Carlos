@@ -21,9 +21,9 @@ const cerrando = ref(false)
 // Las rutas hijas (detalle, nuevo) mantienen resaltado su módulo.
 function activoPorHija(modulo: string): boolean {
   // El detalle abierto desde Despacho resalta Despacho.
-  const desdeDespacho = route.name === 'pedido' && /^\/despacho(?:\?|$)/.test(String(route.query?.volver ?? ''))
-  if (modulo === 'pedidos') return (route.name === 'pedido' && !desdeDespacho) || route.name === 'pedido-nuevo'
-  if (modulo === 'produccion') return route.name === 'produccion-detalle'
+  const desdeDespacho = (route.name === 'pedido' || route.name === 'hoja-despacho') && /^\/despacho(?:\?|$)/.test(String(route.query?.volver ?? ''))
+  if (modulo === 'pedidos') return ((route.name === 'pedido' || route.name === 'hoja-despacho') && !desdeDespacho) || route.name === 'pedido-nuevo'
+  if (modulo === 'produccion') return route.name === 'produccion-detalle' || route.name === 'hoja-produccion'
   if (modulo === 'recetas') return route.name === 'receta' || route.name === 'receta-nueva'
   if (modulo === 'despacho') return desdeDespacho
   return false

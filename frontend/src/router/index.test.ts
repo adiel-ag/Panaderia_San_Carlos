@@ -49,6 +49,19 @@ describe('rutas', () => {
     expect(router.resolve('/produccion/12').name).toBe('produccion-detalle')
   })
 
+  it('registra Reportes y las hojas de impresión con sus roles y carga diferida', async () => {
+    const rutas = router.getRoutes()
+    const reportes = rutas.find((item) => item.name === 'reportes')
+    expect(reportes?.meta.roles).toEqual(['ADMINISTRADOR', 'GERENTE'])
+    expect(typeof reportes?.components?.default).toBe('function')
+    expect(router.resolve('/pedidos/12/hoja').name).toBe('hoja-despacho')
+    expect(router.resolve('/produccion/7/hoja').name).toBe('hoja-produccion')
+    expect(router.resolve('/pedidos/12').name).toBe('pedido')
+    expect(rutas.find((item) => item.name === 'hoja-despacho')?.meta.roles).toEqual(['ADMINISTRADOR', 'DESPACHO', 'GERENTE'])
+    expect(rutas.find((item) => item.name === 'hoja-produccion')?.meta.roles).toEqual(['ADMINISTRADOR', 'PRODUCCION', 'GERENTE'])
+    expect(typeof rutas.find((item) => item.name === 'hoja-despacho')?.components?.default).toBe('function')
+  })
+
   it('muestra Despacho con su pantalla para administrador y despacho', async () => {
     const ruta = router.getRoutes().find((item) => item.name === 'despacho')
     expect(ruta?.path).toBe('/despacho')

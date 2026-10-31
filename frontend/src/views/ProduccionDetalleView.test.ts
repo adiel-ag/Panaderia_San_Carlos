@@ -73,6 +73,16 @@ beforeEach(() => {
 })
 
 describe('ProduccionDetalleView', () => {
+  it.each([
+    ['PRODUCCION', 'EN_PROCESO', 1, true], ['GERENTE', 'PLANIFICADA', 1, true], ['ADMINISTRADOR', 'EN_PROCESO', 1, true],
+    ['PRODUCCION', 'PLANIFICADA', 0, false], ['PRODUCCION', 'FINALIZADA', 1, false],
+  ])('con %s y estado %s (%i pedidos) muestra la hoja de producción: %s', async (rol, estado, pedidos, visible) => {
+    api.sesion.rol = rol
+    api.obtenerProduccion.mockResolvedValue(produccion(estado, pedidos ? [pedido(7, 'EN_PRODUCCION')] : []))
+    const wrapper = await montar()
+    expect(wrapper.text().includes('Imprimir hoja de producción')).toBe(visible)
+  })
+
   it('muestra faltantes y productos sin receta con sus enlaces', async () => {
     api.obtenerInsumos.mockResolvedValue({ idProduccion: 5, estado: 'PLANIFICADA', suficiente: false,
       productosSinReceta: [{ idProducto: 10, nombre: 'Pastel' }],

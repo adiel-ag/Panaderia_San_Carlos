@@ -76,6 +76,18 @@ describe('AppLayout', () => {
     sesion.rol = 'GERENTE'
   })
 
+  it.each([['hoja-despacho', 'pedidos', {}], ['hoja-despacho', 'despacho', { volver: '/despacho' }], ['hoja-produccion', 'produccion', {}]])(
+    'resalta el módulo en la hoja de impresión %s', (nombre, modulo, query) => {
+      sesion.rol = 'ADMINISTRADOR'
+      Object.assign(ruta, { name: nombre, query })
+      const wrapper = mount(AppLayout, {
+        global: { plugins: [PrimeVue], stubs: { RouterLink: true, RouterView: true, Drawer: true } },
+      })
+      expect(wrapper.find(`[data-modulo="${modulo}"]`).classes()).toContain('router-link-active')
+      Object.assign(ruta, { name: 'pedido', query: {} })
+      sesion.rol = 'GERENTE'
+    })
+
   it('navega al login y avisa si el servidor rechaza el cierre', async () => {
     sesion.cerrarSesion.mockRejectedValue(new Error('red'))
     const wrapper = mount(AppLayout, {

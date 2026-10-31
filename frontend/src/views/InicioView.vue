@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import { etiquetaRol } from '../api/roles'
@@ -8,6 +8,7 @@ import { ESTADOS, etiquetaEstado, listarPedidos } from '../api/pedidos'
 import { listarProducciones } from '../api/producciones'
 import { listarExistencias } from '../api/inventario'
 import { listarRecetas } from '../api/recetas'
+import { obtenerAlertas, type Alertas } from '../api/reportes'
 import type { Rol } from '../api/tipos'
 import { opcionesMenu } from '../router/menu'
 import { useSesionStore } from '../stores/sesion'
@@ -15,6 +16,7 @@ import IlustracionPan from '../components/IlustracionPan.vue'
 
 type Indicador = { titulo: string; valor: number; modulo: string; nota: string }
 type Barra = { nombre: string; cantidad: number }
+type Alerta = { clave: string; texto: string; destino: RouteLocationRaw }
 const sesion = useSesionStore()
 const modulos = computed(() => opcionesMenu(sesion.rol).filter((item) => item.nombre !== 'inicio'))
 const indicadores = ref<Indicador[]>([])
@@ -22,6 +24,21 @@ const barras = ref<Barra[]>([])
 const graficoTitulo = ref('')
 const cargando = ref(true)
 const error = ref(false)
+const alertas = ref<Alertas | null>(null)
+// Solo se listan los conteos mayores que cero; si la consulta falla el bloque no aparece.
+const listaAlertas = computed<Alerta[]>(() => {
+  const datos = alertas.value
+  if (!datos) return []
+  const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`
+  const lista: Alerta[] = []
+  if (datos.pedidosAtrasados > 0) lista.push({ clave: 'atrasados', texto: plural(datos.pedidosAtrasados, 'pedido atrasado', 'pedidos atrasados'), destino: { name: 'pedidos', query: { entrega: 'todas' } } })
+  if (datos.productosSinReceta > 0) lista.push({ clave: 'sin-receta', texto: plural(datos.productosSinReceta, 'producto sin receta', 'productos sin receta'), destino: { name: 'recetas', query: { filtro: 'sin-receta' } } })
+  if (datos.insumosBajoMinimo > 0) lista.push({ clave: 'bajo-minimo', texto: plural(datos.insumosBajoMinimo, 'insumo bajo el mínimo', 'insumos bajo el mínimo'), destino: { name: 'inventario', query: { tipo: 'INSUMO', bajo: '1' } } })
+  return lista
+})
+async function cargarAlertas(): Promise<void> {
+  try { alertas.value = await obtenerAlertas() } catch { alertas.value = null }
+}
 const maximo = computed(() => Math.max(1, ...barras.value.map((barra) => barra.cantidad)))
 
 function hoyLocal(): string {
@@ -31,6 +48,7 @@ function hoyLocal(): string {
 function tiene(rol: Rol | null, roles: readonly Rol[]): boolean { return rol !== null && roles.includes(rol) }
 
 async function cargar(): Promise<void> {
+  void cargarAlertas()
   cargando.value = true
   error.value = false
   indicadores.value = []
@@ -89,6 +107,11 @@ onMounted(() => { void cargar() })
     </div>
     <section class="dashboard-seccion" aria-labelledby="titulo-operacion">
       <div class="cabecera-seccion"><div><h2 id="titulo-operacion">Operación de hoy</h2><p class="subtitulo">Cifras de los módulos a los que tienes acceso.</p></div><Button v-if="!cargando" label="Actualizar" icon="pi pi-refresh" text @click="cargar" /></div>
+      <ul v-if="listaAlertas.length" class="alertas-inicio" aria-label="Alertas">
+        <li v-for="alerta in listaAlertas" :key="alerta.clave" :data-alerta="alerta.clave">
+          <i class="pi pi-exclamation-triangle" aria-hidden="true" /><RouterLink :to="alerta.destino">{{ alerta.texto }}</RouterLink>
+        </li>
+      </ul>
       <p v-if="cargando" role="status">Cargando indicadores…</p>
       <div v-else-if="error" class="dashboard-aviso"><Message severity="warn">No se pudieron cargar los indicadores.</Message><Button label="Reintentar" @click="cargar" /></div>
       <template v-else>
