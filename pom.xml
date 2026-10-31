@@ -150,6 +150,9 @@
                         <artifactId>maven-war-plugin</artifactId>
                         <configuration>
                             <webXml>src/main/webapp/WEB-INF/web-produccion.xml</webXml>
+                            <!-- Carpeta intermedia propia: si se reutiliza la de desarrollo, Maven
+                                 conserva su web.xml (mas nuevo) y el WAR sale sin cookie segura. -->
+                            <webappDirectory>${project.build.directory}/${project.build.finalName}-produccion</webappDirectory>
                         </configuration>
                     </plugin>
                 </plugins>
