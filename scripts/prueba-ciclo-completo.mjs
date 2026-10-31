@@ -22,6 +22,8 @@ const ROLES = ['ADMINISTRADOR', 'GERENTE', 'SUCURSAL', 'PRODUCCION', 'BODEGA', '
 const CANTIDAD_POR_PRODUCTO = 20
 
 let fallos = 0
+// Productos finales que no se pudieron probar por no tener receta: se informan al final.
+const sinReceta = []
 const ok = (texto) => console.log(`  ✔ ${texto}`)
 const mal = (texto) => { fallos++; console.log(`  ✘ ${texto}`) }
 const nota = (texto) => console.log(`  · ${texto}`)
@@ -116,7 +118,9 @@ async function principal() {
   for (const p of finales) {
     const r = await sesiones.ADMINISTRADOR.sesion.pedir('GET', `/recetas/productos/${p.idProducto}/activa`)
     if (r.status === 200) { conReceta.push(p); ok(`${p.nombre}: receta activa #${r.datos.idReceta}`) }
-    else nota(`${p.nombre}: sin receta activa, no se puede producir (${r.datos?.message ?? r.status})`)
+    // Solo "no tiene receta" (404) se omite; una receta ambigua (409) u otro error es un fallo.
+    else if (r.status === 404) { sinReceta.push(p.nombre); nota(`${p.nombre}: sin receta activa, no se puede producir`) }
+    else mal(`${p.nombre}: receta inutilizable (${r.status} ${r.datos?.message ?? ''})`)
   }
   if (!conReceta.length) mal('Ningún producto final tiene receta activa: no se puede producir nada')
   const PEDIDO = Object.fromEntries(conReceta.map((p) => [p.nombre, CANTIDAD_POR_PRODUCTO]))
@@ -202,6 +206,8 @@ async function principal() {
 principal()
   .catch((error) => { fallos++; console.log(`\n✘ ${error.message}`) })
   .finally(() => {
-    console.log(fallos ? `\nRESULTADO: ${fallos} problema(s).` : '\nRESULTADO: todo correcto.')
+    const aviso = sinReceta.length ? `\nAVISO: ${sinReceta.length} producto(s) final(es) sin receta activa no se probaron: ${sinReceta.join(', ')}.` : ''
+    console.log(fallos ? `${aviso}\nRESULTADO: ${fallos} problema(s).`
+      : sinReceta.length ? `${aviso}\nRESULTADO: correcto para los productos con receta.` : '\nRESULTADO: todo correcto.')
     process.exitCode = fallos ? 1 : 0
   })
