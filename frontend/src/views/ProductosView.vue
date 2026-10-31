@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vEtiquetasTabla } from '../directivas/etiquetasTabla'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DataTable from 'primevue/datatable'
@@ -117,7 +118,7 @@ function pedirCambio(producto: Producto): void {
       <div class="filtro-entrega"><label>Estado</label><SelectButton :model-value="filtros.estado" :options="estadosFiltro" option-label="label" option-value="value" :allow-empty="false" aria-label="Estado" @update:model-value="cambiarEstadoFiltro" /></div>
       <div class="filtro-busqueda"><label for="buscar-producto">Buscar por nombre</label><InputText id="buscar-producto" v-model="busqueda" placeholder="Buscar producto" /></div>
     </div>
-    <div class="tabla-pedidos tabla-catalogo">
+    <div v-etiquetas-tabla class="tabla-pedidos tabla-adaptable tabla-catalogo">
       <DataTable :value="filtrados" :loading="cargando" data-key="idProducto">
         <Column field="nombre" header="Nombre" />
         <Column header="Tipo"><template #body="{ data }">{{ data.nombreTipoProducto === 'INSUMO' ? 'Insumo' : 'Producto final' }}</template></Column>

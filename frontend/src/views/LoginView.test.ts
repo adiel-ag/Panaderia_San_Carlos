@@ -39,6 +39,16 @@ describe('LoginView', () => {
     expect(wrapper.find('#contrasena').exists()).toBe(true)
   })
 
+  it('acompaña el formulario con el panel de marca para escritorio', () => {
+    const wrapper = mount(LoginView, { global: { plugins: [PrimeVue] } })
+    const marca = wrapper.get('.acceso-marco > .acceso-marca')
+    expect(marca.text()).toContain('Pedidos, horneadas y despachos de cada sucursal, en un solo lugar.')
+    expect(marca.find('.ilustracion-pan').exists()).toBe(true)
+    // El panel no duplica el título de la página: el único h1 sigue en la tarjeta.
+    expect(wrapper.findAll('h1')).toHaveLength(1)
+    expect(wrapper.find('.acceso-marco > .acceso-card form').exists()).toBe(true)
+  })
+
   it('redirige al destino seguro tras iniciar sesión', async () => {
     route.query = { redirect: '/pedidos' }
     sesion.iniciarSesion.mockResolvedValue({})

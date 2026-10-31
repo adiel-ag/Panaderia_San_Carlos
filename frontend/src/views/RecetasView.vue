@@ -13,6 +13,7 @@ import EstadoReceta from '../components/EstadoReceta.vue'
 import { formatearCantidad } from './inventario'
 import { abreviaturaUnidad } from './produccion'
 import { estadoReceta, filtrarRecetas, leerFiltroRecetas, queryFiltroRecetas, textoResumenRecetas, type FiltroRecetas } from './recetas'
+import { vEtiquetasTabla } from '../directivas/etiquetasTabla'
 
 const route = useRoute()
 const router = useRouter()
@@ -72,7 +73,7 @@ void cargar()
         <SelectButton :model-value="filtro" :options="opcionesFiltro" option-label="label" option-value="value" :allow-empty="false" aria-label="Mostrar" @update:model-value="cambiarFiltro" />
       </div>
     </div>
-    <div class="tabla-pedidos tabla-recetas" :class="{ 'tabla-recetas--acciones': puedeEditar }">
+    <div v-etiquetas-tabla class="tabla-pedidos tabla-adaptable tabla-recetas" :class="{ 'tabla-recetas--acciones': puedeEditar }">
       <DataTable :value="filtradas" :loading="cargando" data-key="idProducto" @row-click="abrirFila">
         <Column header="Producto">
           <template #body="{ data }"><RouterLink :to="destino(data)" class="enlace-pedido">{{ data.nombreProducto }}</RouterLink></template>

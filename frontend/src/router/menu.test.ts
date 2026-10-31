@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ROLES, type Rol } from '../api/tipos'
-import { menu, opcionesMenu } from './menu'
+import { menu, opcionesMenu, seccionesMenu } from './menu'
 
 const visibles: Record<Rol, string[]> = {
   ADMINISTRADOR: ['inicio', 'pedidos', 'produccion', 'recetas', 'inventario', 'productos', 'despacho', 'reportes', 'usuarios', 'sucursales'],
@@ -29,7 +29,7 @@ describe('opcionesMenu', () => {
     expect(menu[indice - 1]?.nombre).toBe('produccion')
     expect(menu[indice]).toEqual({
       nombre: 'recetas', etiqueta: 'Recetas', icono: 'pi pi-book', descripcion: 'Define el rendimiento y los ingredientes de cada producto.',
-      roles: ['ADMINISTRADOR', 'GERENTE', 'PRODUCCION'],
+      roles: ['ADMINISTRADOR', 'GERENTE', 'PRODUCCION'], grupo: 'catalogos',
     })
   })
 
@@ -38,11 +38,33 @@ describe('opcionesMenu', () => {
     expect(menu[indice + 1]?.nombre).toBe('usuarios')
     expect(menu[indice]).toEqual({
       nombre: 'reportes', etiqueta: 'Reportes', icono: 'pi pi-chart-bar', descripcion: 'Consulta pedidos, producción y consumo por fechas.',
-      roles: ['ADMINISTRADOR', 'GERENTE'],
+      roles: ['ADMINISTRADOR', 'GERENTE'], grupo: 'administracion',
     })
   })
 
   it('no muestra opciones sin rol', () => {
     expect(opcionesMenu(null)).toEqual([])
+  })
+})
+
+describe('seccionesMenu', () => {
+  it('agrupa los módulos en Operación, Catálogos y Administración', () => {
+    expect(seccionesMenu('ADMINISTRADOR').map((seccion) => [seccion.etiqueta, seccion.opciones.map((opcion) => opcion.nombre)])).toEqual([
+      ['Operación', ['inicio', 'pedidos', 'produccion', 'inventario', 'despacho']],
+      ['Catálogos', ['recetas', 'productos']],
+      ['Administración', ['reportes', 'usuarios', 'sucursales']],
+    ])
+  })
+
+  it('omite los grupos sin módulos visibles para el rol', () => {
+    expect(seccionesMenu('SUCURSAL').map((seccion) => seccion.grupo)).toEqual(['operacion'])
+    expect(seccionesMenu('BODEGA').map((seccion) => seccion.grupo)).toEqual(['operacion', 'catalogos'])
+    expect(seccionesMenu('GERENTE').map((seccion) => seccion.grupo)).toEqual(['operacion', 'catalogos', 'administracion'])
+    expect(seccionesMenu(null)).toEqual([])
+  })
+
+  it.each(ROLES)('conserva todos los módulos visibles de %s', (rol) => {
+    const agrupados = seccionesMenu(rol).flatMap((seccion) => seccion.opciones.map((opcion) => opcion.nombre))
+    expect([...agrupados].sort()).toEqual([...visibles[rol]].sort())
   })
 })

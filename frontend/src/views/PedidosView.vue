@@ -13,6 +13,7 @@ import { useSesionStore } from '../stores/sesion'
 import EstadoPedido from '../components/EstadoPedido.vue'
 import IrPedido from '../components/IrPedido.vue'
 import { consultaPedidos, leerFiltros, queryFiltros, textoResumenHoy, type Entrega, type FiltrosPedidos } from './filtrosPedidos'
+import { vEtiquetasTabla } from '../directivas/etiquetasTabla'
 
 const route = useRoute()
 const router = useRouter()
@@ -129,7 +130,7 @@ watch(esSucursal, (oculta) => { if (!oculta) void listarSucursales().then((items
       </div>
       <Button v-if="filtrosActivos" label="Limpiar filtros" text class="limpiar-filtros" @click="limpiar" />
     </div>
-    <div class="tabla-pedidos">
+    <div v-etiquetas-tabla class="tabla-pedidos tabla-adaptable">
       <DataTable :value="pedidos" lazy paginator :rows="20" :first="(filtros.pagina - 1) * 20" :total-records="total" :loading="cargando" data-key="idPedido" @page="cambiarPagina" @row-click="abrirFila">
         <Column header="N.º" body-class="identificador">
           <template #body="{ data }"><RouterLink :to="destino(data)" class="enlace-pedido">#{{ data.idPedido }}</RouterLink></template>

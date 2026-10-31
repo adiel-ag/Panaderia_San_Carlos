@@ -21,12 +21,13 @@ function ir(): void {
 </script>
 
 <template>
-  <form class="ir-pedido" @submit.prevent="ir">
-    <label for="numero-pedido">Ir al pedido</label>
+  <!-- Compacto: la etiqueta queda para lectores de pantalla y el campo ocupa una sola fila. -->
+  <form class="ir-pedido" role="search" aria-label="Ir al pedido" @submit.prevent="ir">
+    <label for="numero-pedido" class="sr-only">Ir al pedido</label>
     <div class="ir-pedido-controles">
-      <InputText id="numero-pedido" v-model="numero" inputmode="numeric" placeholder="#Número" aria-label="Número de pedido" @input="error = ''" />
-      <Button label="Ir" type="submit" outlined />
+      <InputText id="numero-pedido" v-model="numero" inputmode="numeric" placeholder="Ir al pedido #" autocomplete="off" :invalid="!!error" :aria-describedby="error ? 'numero-pedido-error' : undefined" @input="error = ''" />
+      <Button label="Ir" icon="pi pi-arrow-right" icon-pos="right" type="submit" outlined />
     </div>
-    <small v-if="error" class="error-campo" role="alert">{{ error }}</small>
+    <small v-if="error" id="numero-pedido-error" class="error-campo" role="alert">{{ error }}</small>
   </form>
 </template>

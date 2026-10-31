@@ -82,4 +82,41 @@ describe('InicioView', () => {
     expect(fallo.find('[aria-label="Alertas"]').exists()).toBe(false)
     expect(fallo.text()).toContain('Pedidos con entrega hoy')
   })
+
+  it('muestra la fecha de hoy y el rol en texto normal, sin la marca repetida', async () => {
+    const wrapper = mount(InicioView, { global: { stubs: { RouterLink: enlace } } })
+    await flushPromises()
+    const fecha = wrapper.get('.saludo-fecha').text()
+    const esperada = new Intl.DateTimeFormat('es-GT', { day: 'numeric', month: 'long' }).formatToParts(new Date())
+    expect(fecha).toMatch(/^\p{Lu}\p{Ll}+ \d{1,2} de \p{Ll}+ · Administrador$/u)
+    expect(fecha).toContain(`${esperada.find((parte) => parte.type === 'day')?.value} de ${esperada.find((parte) => parte.type === 'month')?.value}`)
+    expect(wrapper.find('.saludo-contexto').exists()).toBe(false)
+  })
+
+  it('presenta Hoy en el horno con el conteo de cada etapa y enlaza a Pedidos filtrado', async () => {
+    const wrapper = mount(InicioView, { global: { stubs: { RouterLink: enlace } } })
+    await flushPromises()
+    const horno = wrapper.get('[aria-labelledby="titulo-horno"]')
+    expect(horno.get('h3').text()).toBe('Hoy en el horno')
+    const pasos = horno.findAll('.horno-paso')
+    expect(pasos.map((paso) => [paso.attributes('data-etapa'), paso.find('.horno-valor').text(), paso.find('.horno-etiqueta').text()])).toEqual([
+      ['PENDIENTE', '3', 'Pendiente'],
+      ['CONFIRMADO', '0', 'Confirmado'],
+      ['EN_PRODUCCION', '0', 'En producción'],
+      ['LISTO_DESPACHO', '2', 'Listo para despacho'],
+      ['DESPACHADO', '0', 'Despachado'],
+    ])
+    expect(pasos.map((paso) => JSON.parse(paso.get('a').attributes('data-to')!))).toEqual(
+      ['PENDIENTE', 'CONFIRMADO', 'EN_PRODUCCION', 'LISTO_DESPACHO', 'DESPACHADO'].map((estado) => ({ name: 'pedidos', query: { entrega: 'hoy', estado } })),
+    )
+    expect(horno.text()).not.toContain('Cancelado')
+    expect(pasos[0]!.get('a').attributes('aria-label')).toBe('3 Pendiente: pedidos con entrega hoy')
+  })
+
+  it('no muestra Hoy en el horno a quien no consulta pedidos', async () => {
+    sesion.rol = 'BODEGA'
+    const wrapper = mount(InicioView, { global: { stubs: { RouterLink: enlace } } })
+    await flushPromises()
+    expect(wrapper.find('[aria-labelledby="titulo-horno"]').exists()).toBe(false)
+  })
 })

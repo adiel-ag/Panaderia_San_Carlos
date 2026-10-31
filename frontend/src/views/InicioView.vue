@@ -4,7 +4,7 @@ import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import { etiquetaRol } from '../api/roles'
-import { ESTADOS, etiquetaEstado, listarPedidos } from '../api/pedidos'
+import { ESTADOS, etiquetaEstado, listarPedidos, type Estado } from '../api/pedidos'
 import { listarProducciones } from '../api/producciones'
 import { listarExistencias } from '../api/inventario'
 import { listarRecetas } from '../api/recetas'
@@ -15,11 +15,29 @@ import { useSesionStore } from '../stores/sesion'
 import IlustracionPan from '../components/IlustracionPan.vue'
 
 type Indicador = { titulo: string; valor: number; modulo: string; nota: string }
+type Etapa = { estado: Estado; etiqueta: string; icono: string; total: number }
 type Barra = { nombre: string; cantidad: number }
 type Alerta = { clave: string; texto: string; destino: RouteLocationRaw }
 const sesion = useSesionStore()
 const modulos = computed(() => opcionesMenu(sesion.rol).filter((item) => item.nombre !== 'inicio'))
 const indicadores = ref<Indicador[]>([])
+const etapas = ref<Etapa[]>([])
+// Recorrido del pedido en el día; los cancelados no pasan por el horno.
+const ICONOS_ETAPA: Partial<Record<Estado, string>> = {
+  PENDIENTE: 'pi pi-clock', CONFIRMADO: 'pi pi-check-circle', EN_PRODUCCION: 'pi pi-cog',
+  LISTO_DESPACHO: 'pi pi-box', DESPACHADO: 'pi pi-truck',
+}
+function iconoModulo(modulo: string): string {
+  return opcionesMenu(sesion.rol).find((opcion) => opcion.nombre === modulo)?.icono ?? 'pi pi-chart-bar'
+}
+// "Viernes 31 de octubre": fecha de hoy en español, sin coma y con mayúscula inicial.
+function fechaLarga(fecha: Date): string {
+  const partes = new Intl.DateTimeFormat('es-GT', { weekday: 'long', day: 'numeric', month: 'long' }).formatToParts(fecha)
+  const parte = (tipo: Intl.DateTimeFormatPartTypes) => partes.find((item) => item.type === tipo)?.value ?? ''
+  const texto = `${parte('weekday')} ${parte('day')} de ${parte('month')}`
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
+}
+const fechaHoy = fechaLarga(new Date())
 const barras = ref<Barra[]>([])
 const graficoTitulo = ref('')
 const cargando = ref(true)
@@ -52,6 +70,7 @@ async function cargar(): Promise<void> {
   cargando.value = true
   error.value = false
   indicadores.value = []
+  etapas.value = []
   barras.value = []
   const rol = sesion.rol
   try {
@@ -63,6 +82,8 @@ async function cargar(): Promise<void> {
         estado, total: (await listarPedidos({ estado, entregaDesde: fecha, entregaHasta: fecha }, 1, 1, false)).total,
       })))
       nuevos.push({ titulo: 'Pedidos con entrega hoy', valor: totales.filter((item) => item.estado !== 'CANCELADO').reduce((suma, item) => suma + item.total, 0), modulo: 'pedidos', nota: 'Incluye los ya despachados' })
+      etapas.value = totales.filter((item) => item.estado !== 'CANCELADO')
+        .map((item) => ({ estado: item.estado, etiqueta: etiquetaEstado(item.estado), icono: ICONOS_ETAPA[item.estado] ?? 'pi pi-circle', total: item.total }))
       barras.value = totales.filter((item) => item.total > 0).map((item) => ({ nombre: etiquetaEstado(item.estado), cantidad: item.total }))
       graficoTitulo.value = 'Pedidos por estado para hoy'
       if (tiene(rol, ['ADMINISTRADOR', 'GERENTE', 'DESPACHO'])) {
@@ -99,7 +120,7 @@ onMounted(() => { void cargar() })
   <section class="pagina pagina-inicio">
     <div class="saludo">
       <div>
-        <p class="saludo-contexto">Panadería San Carlos · {{ etiquetaRol(sesion.rol) }}</p>
+        <p class="saludo-fecha">{{ fechaHoy }} · {{ etiquetaRol(sesion.rol) }}</p>
         <h1>Hola, {{ sesion.usuario?.nombre }}</h1>
         <p class="subtitulo">Lo que necesita atención en tu jornada.</p>
       </div>
@@ -115,9 +136,23 @@ onMounted(() => { void cargar() })
       <p v-if="cargando" role="status">Cargando indicadores…</p>
       <div v-else-if="error" class="dashboard-aviso"><Message severity="warn">No se pudieron cargar los indicadores.</Message><Button label="Reintentar" @click="cargar" /></div>
       <template v-else>
+        <section v-if="etapas.length" class="horno" aria-labelledby="titulo-horno">
+          <div class="horno-cabecera">
+            <h3 id="titulo-horno">Hoy en el horno</h3>
+            <p class="subtitulo">Pedidos con entrega hoy, según la etapa en que van.</p>
+          </div>
+          <ol class="horno-pasos">
+            <li v-for="etapa in etapas" :key="etapa.estado" class="horno-paso" :data-etapa="etapa.estado">
+              <RouterLink :to="{ name: 'pedidos', query: { entrega: 'hoy', estado: etapa.estado } }" class="horno-enlace" :aria-label="`${etapa.total} ${etapa.etiqueta}: ${etapa.total === 1 ? 'pedido' : 'pedidos'} con entrega hoy`">
+                <span class="horno-icono" aria-hidden="true"><i :class="etapa.icono" /></span>
+                <span class="horno-texto"><strong class="horno-valor">{{ etapa.total }}</strong><span class="horno-etiqueta">{{ etapa.etiqueta }}</span></span>
+              </RouterLink>
+            </li>
+          </ol>
+        </section>
         <div class="dashboard-indicadores">
           <RouterLink v-for="dato in indicadores" :key="dato.titulo" :to="{ name: dato.modulo }" class="dashboard-indicador">
-            <span class="dashboard-indicador-titulo">{{ dato.titulo }}</span><strong class="dashboard-indicador-valor">{{ dato.valor }}</strong>
+            <span class="dashboard-indicador-titulo"><i :class="iconoModulo(dato.modulo)" aria-hidden="true" />{{ dato.titulo }}</span><strong class="dashboard-indicador-valor">{{ dato.valor }}</strong>
             <span class="dashboard-indicador-nota">{{ dato.nota }} <i class="pi pi-arrow-right" aria-hidden="true" /></span>
           </RouterLink>
         </div>

@@ -12,6 +12,7 @@ import { ApiError } from '../api/cliente'
 import { actualizarSucursal, cambiarEstadoSucursal, crearSucursal, listarTodasSucursales,
   type SolicitudSucursal, type SucursalAdmin } from '../api/sucursales'
 import { normalizarSucursal, validarSucursal } from './sucursales'
+import { vEtiquetasTabla } from '../directivas/etiquetasTabla'
 
 const confirm = useConfirm()
 const toast = useToast()
@@ -80,7 +81,7 @@ function pedirCambio(sucursal: SucursalAdmin): void {
 <template>
   <section class="pagina pagina-catalogo">
     <div class="cabecera-pedidos"><div><h1>Sucursales</h1><p class="subtitulo">Administra las tiendas que hacen pedidos.</p></div><Button label="Nueva sucursal" icon="pi pi-plus" @click="abrir(null)" /></div>
-    <div class="tabla-pedidos tabla-catalogo tabla-sucursales">
+    <div v-etiquetas-tabla class="tabla-pedidos tabla-adaptable tabla-catalogo tabla-sucursales">
       <DataTable :value="sucursales" :loading="cargando" data-key="idSucursal">
         <Column field="nombre" header="Nombre" />
         <Column header="Dirección"><template #body="{ data }">{{ data.direccion || '—' }}</template></Column>

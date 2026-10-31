@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vEtiquetasTabla } from '../directivas/etiquetasTabla'
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
@@ -189,7 +190,7 @@ void listarSucursales().then((items) => { sucursales.value = items }).catch(() =
       </div>
       <Button v-if="filtrosActivos" label="Limpiar filtros" text class="limpiar-filtros" @click="limpiar" />
     </div>
-    <div class="tabla-pedidos tabla-despacho">
+    <div v-etiquetas-tabla class="tabla-pedidos tabla-adaptable tabla-despacho">
       <DataTable :value="pedidos" lazy paginator :rows="20" :first="(filtros.pagina - 1) * 20" :total-records="total" :loading="cargando" data-key="idPedido" @page="cambiarPagina" @row-click="abrirFila">
         <Column header="N.º" body-class="identificador">
           <template #body="{ data }"><RouterLink :to="destino(data)" class="enlace-pedido">#{{ data.idPedido }}</RouterLink></template>

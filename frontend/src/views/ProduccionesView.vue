@@ -17,6 +17,7 @@ import type { PedidoResumen } from '../api/pedidos'
 import { useSesionStore } from '../stores/sesion'
 import EstadoProduccion from '../components/EstadoProduccion.vue'
 import { leerFiltrosProduccion, queryFiltrosProduccion, textoResumenProduccion } from './produccion'
+import { vEtiquetasTabla } from '../directivas/etiquetasTabla'
 
 const route = useRoute()
 const router = useRouter()
@@ -186,7 +187,7 @@ void cargarResumen()
         <SelectButton :model-value="filtros.estado ?? 'TODAS'" :options="opcionesEstado" option-label="label" option-value="value" :allow-empty="false" aria-label="Estado" @update:model-value="cambiarEstado" />
       </div>
     </div>
-    <div class="tabla-pedidos tabla-producciones">
+    <div v-etiquetas-tabla class="tabla-pedidos tabla-adaptable tabla-producciones">
       <DataTable :value="producciones" lazy paginator :rows="20" :first="(filtros.pagina - 1) * 20" :total-records="total" :loading="cargando" data-key="idProduccion" @page="cambiarPagina" @row-click="abrirFila">
         <Column header="N.º" body-class="identificador">
           <template #body="{ data }"><RouterLink :to="destino(data)" class="enlace-pedido">#{{ data.idProduccion }}</RouterLink></template>

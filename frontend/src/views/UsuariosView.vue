@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vEtiquetasTabla } from '../directivas/etiquetasTabla'
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfirm } from 'primevue/useconfirm'
@@ -367,7 +368,7 @@ onBeforeUnmount(cancelarBusqueda)
       </div>
       <Button v-if="filtrosActivos" label="Limpiar filtros" text class="limpiar-filtros" @click="limpiar" />
     </div>
-    <div class="tabla-pedidos tabla-inventario tabla-usuarios">
+    <div v-etiquetas-tabla class="tabla-pedidos tabla-adaptable tabla-inventario tabla-usuarios">
       <DataTable :value="visibles" lazy paginator :rows="TAMANO" :first="(filtros.pagina - 1) * TAMANO" :total-records="total" :loading="cargando" data-key="idUsuario" @page="cambiarPagina">
         <Column header="Nombre">
           <template #body="{ data }">
