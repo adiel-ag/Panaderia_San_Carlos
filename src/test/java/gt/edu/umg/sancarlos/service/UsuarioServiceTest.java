@@ -28,6 +28,31 @@ class UsuarioServiceTest {
     private final List<String> eventos = new ArrayList<>();
     private final UsuarioDAOFalso usuarios = new UsuarioDAOFalso();
     private final SeguridadDAOFalso seguridad = new SeguridadDAOFalso();
+    /** Estado de la sucursal que devuelve la consulta de bloqueo; null = sin sucursal. */
+    private String estadoSucursal;
+
+    @Test
+    void noReactivaAUnUsuarioDeUnaSucursalInactiva() {
+        estadoSucursal = "INACTIVO";
+
+        UsuarioConflictoException error = assertThrows(UsuarioConflictoException.class,
+                () -> servicio().cambiarEstado(5, "ACTIVO"));
+
+        assertTrue(error.getMessage().contains("sucursal de este usuario está inactiva"));
+        assertEquals(List.of("abrir", "autoCommit:false", "bloquear-sucursal", "rollback", "close"), eventos);
+    }
+
+    @Test
+    void reactivaSiLaSucursalEstaActivaODesactivaSinConsultarla() {
+        estadoSucursal = "ACTIVO";
+        servicio().cambiarEstado(5, "ACTIVO");
+        assertEquals(List.of("abrir", "autoCommit:false", "bloquear-sucursal", "estado:ACTIVO",
+                "leer", "commit", "close"), eventos);
+
+        eventos.clear();
+        servicio().cambiarEstado(5, "INACTIVO");
+        assertFalse(eventos.contains("bloquear-sucursal"), eventos.toString());
+    }
 
     @Test
     void crearUsuarioYClaveUsaUnaTransaccionYUnCommit() {
@@ -97,12 +122,35 @@ class UsuarioServiceTest {
         return (Connection) Proxy.newProxyInstance(Connection.class.getClassLoader(),
                 new Class<?>[]{Connection.class}, (proxy, method, args) -> {
                     switch (method.getName()) {
+                        case "prepareStatement" -> {
+                            eventos.add("bloquear-sucursal");
+                            return sentenciaSucursal();
+                        }
                         case "setAutoCommit" -> eventos.add("autoCommit:" + args[0]);
                         case "commit", "rollback", "close" -> eventos.add(method.getName());
                         default -> { }
                     }
                     return null;
                 });
+    }
+
+    private java.sql.PreparedStatement sentenciaSucursal() {
+        boolean[] leida = {false};
+        java.sql.ResultSet fila = (java.sql.ResultSet) Proxy.newProxyInstance(
+                java.sql.ResultSet.class.getClassLoader(), new Class<?>[]{java.sql.ResultSet.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "next" -> {
+                        boolean hay = !leida[0] && estadoSucursal != null;
+                        leida[0] = true;
+                        yield hay;
+                    }
+                    case "getString" -> estadoSucursal;
+                    default -> null;
+                });
+        return (java.sql.PreparedStatement) Proxy.newProxyInstance(
+                java.sql.PreparedStatement.class.getClassLoader(),
+                new Class<?>[]{java.sql.PreparedStatement.class},
+                (proxy, method, args) -> "executeQuery".equals(method.getName()) ? fila : null);
     }
 
     private static SQLException error(int codigo) {
@@ -122,6 +170,9 @@ class UsuarioServiceTest {
                 long idRol, Long idSucursal) {
             eventos.add("crear");
             return 7;
+        }
+        @Override public void cambiarEstado(Connection connection, long id, String estado) {
+            eventos.add("estado:" + estado);
         }
         @Override public Optional<UsuarioDTO> buscarPorId(Connection connection, long id) {
             eventos.add("leer");

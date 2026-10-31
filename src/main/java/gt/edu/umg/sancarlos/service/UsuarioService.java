@@ -119,7 +119,11 @@ public class UsuarioService {
         validarEstado(estado);
         return transaccion(connection -> {
             // Reactivar a alguien de sucursal no debe cruzarse con desactivar esa sucursal.
-            if ("ACTIVO".equals(estado)) BloqueoSucursal.bloquearDeUsuario(connection, id);
+            if ("ACTIVO".equals(estado)
+                    && "INACTIVO".equals(BloqueoSucursal.bloquearDeUsuario(connection, id))) {
+                throw new UsuarioConflictoException(
+                        "La sucursal de este usuario está inactiva; actívela antes de reactivarlo", null);
+            }
             usuarioDAO.cambiarEstado(connection, id, estado);
             return leer(connection, id);
         });

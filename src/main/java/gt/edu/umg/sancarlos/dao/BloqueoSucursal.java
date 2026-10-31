@@ -17,7 +17,7 @@ public final class BloqueoSucursal {
     private static final String SQL_SUCURSAL =
             "SELECT id_sucursal FROM SUCURSAL WHERE id_sucursal = ? FOR UPDATE";
     private static final String SQL_SUCURSAL_DE_USUARIO =
-            "SELECT s.id_sucursal FROM SUCURSAL s JOIN USUARIO u ON u.id_sucursal = s.id_sucursal "
+            "SELECT s.estado FROM SUCURSAL s JOIN USUARIO u ON u.id_sucursal = s.id_sucursal "
             + "WHERE u.id_usuario = ? FOR UPDATE OF s.id_sucursal";
 
     private BloqueoSucursal() {
@@ -30,10 +30,16 @@ public final class BloqueoSucursal {
         }
     }
 
-    /** Bloquea la sucursal del usuario, si tiene una. */
-    public static void bloquearDeUsuario(Connection connection, long idUsuario)
+    /** Bloquea la sucursal del usuario y devuelve su estado; null si no tiene sucursal. */
+    public static String bloquearDeUsuario(Connection connection, long idUsuario)
             throws SQLException {
-        ejecutar(connection, SQL_SUCURSAL_DE_USUARIO, idUsuario);
+        try (PreparedStatement statement = connection.prepareStatement(SQL_SUCURSAL_DE_USUARIO)) {
+            ConnectionFactory.aplicarTimeout(statement);
+            statement.setLong(1, idUsuario);
+            try (ResultSet rows = statement.executeQuery()) {
+                return rows.next() ? rows.getString(1) : null;
+            }
+        }
     }
 
     private static void ejecutar(Connection connection, String sql, long id) throws SQLException {
