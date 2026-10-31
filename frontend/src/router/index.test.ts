@@ -23,4 +23,10 @@ describe('rutas', () => {
     expect(rutas.find((ruta) => ruta.name === 'login')?.meta.publica).toBe(true)
     expect(rutas.some((ruta) => ruta.path === '/:pathMatch(.*)*')).toBe(true)
   })
+
+  it('protege el detalle con los mismos roles de Pedidos', () => {
+    const rutas = router.getRoutes()
+    expect(rutas.find((ruta) => ruta.name === 'pedido')?.meta.roles).toEqual(menu.find((opcion) => opcion.nombre === 'pedidos')?.roles)
+    expect(rutas.find((ruta) => ruta.name === 'pedido')?.path).toBe('/pedidos/:id(\\d+)')
+  })
 })

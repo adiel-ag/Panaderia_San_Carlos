@@ -18,10 +18,18 @@ vi.mock('../stores/sesion', () => ({ useSesionStore: () => sesion }))
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
   useRouter: () => router,
+  useRoute: () => ({ name: 'pedido' }),
 }))
 vi.mock('primevue/usetoast', () => ({ useToast: () => toast }))
 
 describe('AppLayout', () => {
+  it('resalta Pedidos en la ruta de detalle', () => {
+    const wrapper = mount(AppLayout, {
+      global: { plugins: [PrimeVue], stubs: { RouterLink: true, RouterView: true, Drawer: true } },
+    })
+    expect(wrapper.find('[data-modulo="pedidos"]').classes()).toContain('router-link-active')
+  })
+
   it('navega al login y avisa si el servidor rechaza el cierre', async () => {
     sesion.cerrarSesion.mockRejectedValue(new Error('red'))
     const wrapper = mount(AppLayout, {

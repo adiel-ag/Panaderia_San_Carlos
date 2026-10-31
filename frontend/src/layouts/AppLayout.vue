@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { RouterLink, RouterView, useRouter } from 'vue-router'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Drawer from 'primevue/drawer'
 import { useToast } from 'primevue/usetoast'
@@ -12,6 +12,7 @@ import LogoPanaderia from '../components/LogoPanaderia.vue'
 
 const sesion = useSesionStore()
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const menuAbierto = ref(false)
 const cerrando = ref(false)
@@ -49,7 +50,7 @@ async function cerrarSesion(): Promise<void> {
     <div class="app-cuerpo">
       <aside class="navegacion-lateral" aria-label="Módulos">
         <nav>
-          <RouterLink v-for="opcion in opcionesMenu(sesion.rol)" :key="opcion.nombre" class="enlace-menu" :data-modulo="opcion.nombre" :to="{ name: opcion.nombre }">
+          <RouterLink v-for="opcion in opcionesMenu(sesion.rol)" :key="opcion.nombre" class="enlace-menu" :class="{ 'router-link-active': opcion.nombre === 'pedidos' && route.name === 'pedido' }" :data-modulo="opcion.nombre" :to="{ name: opcion.nombre }">
             <i :class="opcion.icono" aria-hidden="true" />{{ opcion.etiqueta }}
           </RouterLink>
         </nav>
@@ -58,7 +59,7 @@ async function cerrarSesion(): Promise<void> {
     </div>
     <Drawer v-model:visible="menuAbierto" header="Panadería San Carlos" class="cajon-menu">
       <nav aria-label="Módulos">
-        <RouterLink v-for="opcion in opcionesMenu(sesion.rol)" :key="opcion.nombre" class="enlace-menu" :data-modulo="opcion.nombre" :to="{ name: opcion.nombre }" @click="menuAbierto = false">
+        <RouterLink v-for="opcion in opcionesMenu(sesion.rol)" :key="opcion.nombre" class="enlace-menu" :class="{ 'router-link-active': opcion.nombre === 'pedidos' && route.name === 'pedido' }" :data-modulo="opcion.nombre" :to="{ name: opcion.nombre }" @click="menuAbierto = false">
           <i :class="opcion.icono" aria-hidden="true" />{{ opcion.etiqueta }}
         </RouterLink>
       </nav>

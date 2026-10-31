@@ -83,6 +83,59 @@ h1, h2 { line-height: 1.2; }
 .estado-vacio p { color: var(--psc-suave); }
 .clave-card { background: var(--psc-superficie); border: 1px solid var(--psc-borde); border-radius: 20px; padding: 2rem; }
 .boton-menu { display: none !important; }
+.pagina-pedidos { width: min(100%, 90rem); }
+.hallazgo-pedidos { margin: .1rem 0 1.5rem; }
+.filtros-pedidos { display: flex; flex-wrap: wrap; align-items: end; gap: .85rem 1rem; margin: 1.5rem 0 1.25rem; }
+.filtro-entrega, .filtro-select { display: grid; gap: .35rem; min-width: 0; }
+.filtro-entrega label, .filtro-select label { color: var(--psc-suave); font-size: .85rem; font-weight: 700; }
+.filtro-entrega .p-selectbutton { display: flex; flex-wrap: wrap; }
+.filtro-entrega .p-togglebutton { min-height: 44px; color: var(--psc-suave); }
+.filtro-entrega .p-togglebutton.p-togglebutton-checked { color: var(--psc-texto); }
+/* "Todos" es una seleccion real, no una pista: va en el color de texto. */
+.filtros-pedidos .p-select-label.p-placeholder { color: var(--psc-texto); }
+.filtro-select .p-select { min-width: 12.5rem; min-height: 44px; }
+.limpiar-filtros { align-self: end; }
+.tabla-pedidos { width: 100%; min-width: 0; overflow: hidden; border: 1px solid var(--psc-borde); border-radius: 12px; background: var(--psc-superficie); }
+.tabla-pedidos .p-datatable { min-width: 0; background: var(--psc-superficie); color: var(--psc-texto); }
+.tabla-pedidos .p-datatable-table-container { overflow-x: auto; }
+.tabla-pedidos .p-datatable-table { min-width: 58rem; table-layout: auto; }
+.tabla-pedidos .p-datatable-header-cell { background: var(--psc-cabecera-tabla); color: var(--psc-texto); font-size: .83rem; font-weight: 700; border-color: var(--psc-borde); white-space: nowrap; }
+.tabla-pedidos .p-datatable-tbody > tr { background: var(--psc-superficie); color: var(--psc-texto); cursor: pointer; }
+.tabla-pedidos .p-datatable-tbody > tr:hover { background: var(--psc-activo-fondo); }
+.tabla-pedidos .p-datatable-tbody > tr > td { border-color: var(--psc-borde); white-space: nowrap; }
+.unidad { margin-left: .3em; color: var(--psc-suave); }
+.tabla-pedidos .p-datatable-paginator-bottom { border-color: var(--psc-borde); background: var(--psc-superficie); }
+.tabla-pedidos .p-paginator { flex-wrap: wrap; }
+.numero { text-align: right !important; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.identificador { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.enlace-pedido { font-weight: 700; text-underline-offset: .18rem; }
+.fecha-relativa { margin-left: .35rem; color: var(--psc-suave); font-size: .78rem; }
+.celda-observacion { max-width: 15rem; }
+.observacion-truncada { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.texto-suave { color: var(--psc-suave); }
+.tabla-estado { min-height: 9rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .2rem; padding: 1.5rem; text-align: center; white-space: normal; }
+.tabla-estado p { margin: 0; }
+.pagina-pedido-detalle { width: min(100%, 68rem); }
+.volver-pedidos { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 1rem; text-underline-offset: .2rem; }
+.titulo-pedido { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-bottom: 1.4rem; }
+.titulo-pedido h1 { margin: 0; }
+.datos-pedido { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 0; padding: 1.4rem; border: 1px solid var(--psc-borde); border-radius: 12px; background: var(--psc-superficie); }
+.datos-pedido div { min-width: 0; }
+.datos-pedido dt { color: var(--psc-suave); font-size: .82rem; font-weight: 700; }
+.datos-pedido dd { margin: .3rem 0 0; overflow-wrap: anywhere; }
+.seccion-pedido { margin-top: 2rem; }
+.seccion-pedido h2 { margin: 0 0 .8rem; }
+.aviso-unidades { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: .75rem; }
+.tabla-detalle-contenedor { overflow-x: auto; border: 1px solid var(--psc-borde); border-radius: 12px; background: var(--psc-superficie); }
+.tabla-detalle { width: 100%; border-collapse: collapse; }
+.tabla-detalle th, .tabla-detalle td { padding: .8rem 1rem; border-bottom: 1px solid var(--psc-borde); }
+.tabla-detalle th { background: var(--psc-cabecera-tabla); font-size: .83rem; text-align: left; }
+.tabla-detalle tr:last-child td { border-bottom: 0; }
+.detalle-aviso { max-width: 32rem; }
+.detalle-cargando { display: grid; gap: .75rem; padding: 1.4rem; border: 1px solid var(--psc-borde); border-radius: 12px; background: var(--psc-superficie); }
+.esqueleto-fila { width: 100%; height: 1.5rem; border-radius: 4px; background: var(--psc-borde); }
+.esqueleto-fila:nth-child(2) { width: 65%; }
+.esqueleto-fila:nth-child(3) { width: 80%; }
 @media (max-width: 767px) {
   .barra-superior { flex-wrap: wrap; padding: .6rem 1rem; }
   .boton-menu { display: inline-flex !important; }
@@ -93,6 +146,11 @@ h1, h2 { line-height: 1.2; }
   .pagina { padding: 1.75rem 1rem; }
   .saludo { padding: 1.25rem; }
   .saludo .ilustracion-pan { width: min(42%, 180px); }
+  .filtros-pedidos { align-items: stretch; }
+  .filtro-entrega { width: 100%; }
+  .filtro-select { flex: 1 1 10rem; }
+  .filtro-select .p-select { width: 100%; min-width: 0; }
+  .datos-pedido { grid-template-columns: 1fr; }
 }
 @media (max-width: 420px) {
   .barra-superior .logo-panaderia { font-size: 1rem; }

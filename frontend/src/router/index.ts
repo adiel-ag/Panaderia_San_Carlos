@@ -6,6 +6,8 @@ import InicioView from '../views/InicioView.vue'
 import LoginView from '../views/LoginView.vue'
 import CambiarClaveView from '../views/CambiarClaveView.vue'
 import PendienteView from '../views/PendienteView.vue'
+import PedidosView from '../views/PedidosView.vue'
+import PedidoDetalleView from '../views/PedidoDetalleView.vue'
 import SinPermisoView from '../views/SinPermisoView.vue'
 import { decidirNavegacion } from './guardia'
 import { menu } from './menu'
@@ -19,9 +21,11 @@ const router = createRouter({
       path: '/', component: AppLayout, children: [
         { path: '', name: 'inicio', component: InicioView, meta: { titulo: 'Inicio', roles: menu[0]!.roles } },
         ...menu.slice(1).map((opcion) => ({
-          path: opcion.nombre, name: opcion.nombre, component: PendienteView,
+          path: opcion.nombre, name: opcion.nombre, component: opcion.nombre === 'pedidos' ? PedidosView : PendienteView,
           meta: { titulo: opcion.etiqueta, roles: opcion.roles },
         })),
+        { path: 'pedidos/:id(\\d+)', name: 'pedido', component: PedidoDetalleView,
+          meta: { titulo: 'Pedido', roles: menu.find((opcion) => opcion.nombre === 'pedidos')!.roles } },
         { path: 'mi-clave', name: 'mi-clave', component: CambiarClaveView, meta: { titulo: 'Cambiar contraseña', roles: ROLES } },
         { path: 'sin-permiso', name: 'sin-permiso', component: SinPermisoView, meta: { titulo: 'Sin permiso', roles: ROLES } },
       ],

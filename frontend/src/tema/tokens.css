@@ -20,12 +20,16 @@
   --psc-error: #B91C1C;
   --psc-estado-pendiente-fondo: #FBE9B7;
   --psc-estado-pendiente-texto: #6B4A00;
+  --psc-estado-confirmado-fondo: #F1E4D2;
+  --psc-estado-confirmado-texto: #5A3A12;
   --psc-estado-produccion-fondo: #F8D9C2;
   --psc-estado-produccion-texto: #7A3210;
   --psc-estado-listo-fondo: #D5EBDD;
   --psc-estado-listo-texto: #1E5A36;
   --psc-estado-despachado-fondo: #E1E6EF;
   --psc-estado-despachado-texto: #36435A;
+  --psc-estado-cancelado-fondo: #ECE6E1;
+  --psc-estado-cancelado-texto: #5B4F48;
   --psc-fuente-titulos: 'Fraunces Variable', Georgia, serif;
   --psc-fuente-texto: 'Nunito Sans Variable', sans-serif;
 }
@@ -52,10 +56,14 @@
   --psc-error: #FFB4A8;
   --psc-estado-pendiente-fondo: #4A3A1A;
   --psc-estado-pendiente-texto: #F2D48A;
+  --psc-estado-confirmado-fondo: #3A2C1C;
+  --psc-estado-confirmado-texto: #EBC891;
   --psc-estado-produccion-fondo: #4A2A1A;
   --psc-estado-produccion-texto: #F5B98A;
   --psc-estado-listo-fondo: #1F3A2A;
   --psc-estado-listo-texto: #9FD8B4;
   --psc-estado-despachado-fondo: #2A2F3A;
   --psc-estado-despachado-texto: #B8C6E0;
+  --psc-estado-cancelado-fondo: #2C2622;
+  --psc-estado-cancelado-texto: #C8BCB3;
 }

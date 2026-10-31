@@ -82,7 +82,8 @@ public class PedidoDAO {
         List<PedidoResumenDTO> items = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(SQL_RESUMEN_SELECT
                 + SQL_RESUMEN_BASE + SQL_FILTROS
-                + " ORDER BY p.fecha_pedido DESC, p.id_pedido DESC"
+                // La entrega mas proxima primero: la pantalla responde que hay que preparar.
+                + " ORDER BY p.fecha_entrega, p.id_pedido"
                 + " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY")) {
             ConnectionFactory.aplicarTimeout(statement);
             filtros(statement, estado, idSucursal, desde, hasta);
