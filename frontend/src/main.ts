@@ -6,6 +6,7 @@ import Aura from '@primeuix/themes/aura'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
+import 'primeicons/primeicons.css'
 import './style.css'
 
 const app = createApp(App)

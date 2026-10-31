@@ -1,30 +1,21 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
+import { etiquetaRol } from '../api/roles'
+import { opcionesMenu } from '../router/menu'
+import { useSesionStore } from '../stores/sesion'
 
-const estado = ref('Consultando…')
-
-onMounted(async () => {
-  try {
-    const respuesta = await fetch('api/health')
-    if (!respuesta.ok) throw new Error('Error de la API')
-
-    const datos: unknown = await respuesta.json()
-    estado.value =
-      typeof datos === 'object' &&
-      datos !== null &&
-      'status' in datos &&
-      typeof datos.status === 'string'
-        ? datos.status
-        : 'Respuesta sin estado'
-  } catch {
-    estado.value = 'No se pudo consultar la API'
-  }
-})
+const sesion = useSesionStore()
 </script>
 
 <template>
-  <main class="inicio">
-    <h1>Panadería San Carlos</h1>
-    <p>Estado de la API: <span aria-live="polite">{{ estado }}</span></p>
-  </main>
+  <section class="pagina">
+    <h1>Hola, {{ sesion.usuario?.nombre }}</h1>
+    <p class="subtitulo">{{ etiquetaRol(sesion.rol) }}</p>
+    <h2>Módulos disponibles</h2>
+    <nav class="accesos" aria-label="Accesos rápidos">
+      <RouterLink v-for="opcion in opcionesMenu(sesion.rol).filter((item) => item.nombre !== 'inicio')" :key="opcion.nombre" :to="{ name: opcion.nombre }" class="acceso-rapido">
+        <i :class="opcion.icono" aria-hidden="true" /><span>{{ opcion.etiqueta }}</span><i class="pi pi-arrow-right" aria-hidden="true" />
+      </RouterLink>
+    </nav>
+  </section>
 </template>
