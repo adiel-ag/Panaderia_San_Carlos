@@ -20,6 +20,8 @@ public class InventarioDAO {
     private static final String SQL_MOVIMIENTOS_BASE = """
               FROM MOVIMIENTO_INVENTARIO m
               LEFT JOIN USUARIO u ON u.id_usuario = m.id_usuario
+              -- En los movimientos de despacho, id_referencia es el ID del despacho.
+              LEFT JOIN DESPACHO d ON m.origen = 'DESPACHO' AND d.id_despacho = m.id_referencia
              WHERE m.id_producto = ?
             """;
 
@@ -39,7 +41,7 @@ public class InventarioDAO {
         try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT m.id_movimiento, m.fecha_movimiento, m.tipo_movimiento,
                        m.cantidad, m.origen, m.id_referencia, u.nombre AS usuario,
-                       m.observacion
+                       m.observacion, d.id_pedido
                 """ + SQL_MOVIMIENTOS_BASE
                 + " ORDER BY m.fecha_movimiento DESC, m.id_movimiento DESC"
                 + " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY")) {
@@ -51,11 +53,13 @@ public class InventarioDAO {
                 while (rows.next()) {
                     long referencia = rows.getLong("id_referencia");
                     Long idReferencia = rows.wasNull() ? null : referencia;
+                    long pedido = rows.getLong("id_pedido");
+                    Long idPedido = rows.wasNull() ? null : pedido;
                     items.add(new MovimientoDTO(rows.getLong("id_movimiento"),
                             rows.getTimestamp("fecha_movimiento").toLocalDateTime(),
                             rows.getString("tipo_movimiento"), rows.getBigDecimal("cantidad"),
                             rows.getString("origen"), idReferencia,
-                            rows.getString("usuario"), rows.getString("observacion")));
+                            rows.getString("usuario"), rows.getString("observacion"), idPedido));
                 }
             }
         }

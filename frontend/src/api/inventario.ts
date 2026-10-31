@@ -28,6 +28,8 @@ export interface MovimientoInventario {
   cantidad: number
   origen: 'INICIAL' | 'PRODUCCION' | 'DESPACHO' | 'AJUSTE' | 'OTRO'
   idReferencia: number | null
+  /** Pedido del despacho (en DESPACHO, idReferencia es el ID del despacho). */
+  idPedido: number | null
   usuario: string | null
   observacion: string | null
 }

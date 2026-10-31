@@ -66,6 +66,17 @@ class InsumosProduccionTest {
     }
 
     @Test
+    void unaFaltaMenorQueElRedondeoNoSeOcultaComoSuficiente() {
+        // 1.0004 requerido contra 1.000 disponible: SP_SALIDA lo rechazaria.
+        List<FilaInsumo> filas = List.of(new FilaInsumo(10, "Pan", 1, 3L, "Harina", "kg",
+                new BigDecimal("1.0004"), new BigDecimal("1.000"), false));
+        InsumosProduccionDTO resultado = servicio("EN_PROCESO", filas, new boolean[1])
+                .consultarInsumos(5);
+        assertFalse(resultado.suficiente());
+        assertEquals(new BigDecimal("0.001"), resultado.insumos().get(0).faltante());
+    }
+
+    @Test
     void procesoUsaDetalleYCanceladaNoConsultaIngredientes() {
         boolean[] planificada = {true};
         FilaInsumo fila = new FilaInsumo(10, "Pan", 1, 3L, "Harina", "kg",
@@ -74,7 +85,7 @@ class InsumosProduccionTest {
                 .consultarInsumos(5);
         assertFalse(planificada[0]);
         assertTrue(proceso.suficiente());
-        assertEquals(BigDecimal.ZERO, proceso.insumos().get(0).faltante());
+        assertEquals(0, proceso.insumos().get(0).faltante().signum());
         assertTrue(servicio("CANCELADA", List.of(fila), planificada)
                 .consultarInsumos(5).insumos().isEmpty());
         assertEquals("FINALIZADA", servicio("FINALIZADA", List.of(fila), planificada)

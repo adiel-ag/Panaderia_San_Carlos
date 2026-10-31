@@ -82,7 +82,7 @@ function signoMovimiento(tipo: MovimientoInventario['tipo']): string {
 }
 function etiquetaOrigen(item: MovimientoInventario): string {
   if (item.origen === 'PRODUCCION') return `Producción #${item.idReferencia}`
-  if (item.origen === 'DESPACHO') return `Despacho de pedido #${item.idReferencia}`
+  if (item.origen === 'DESPACHO') return item.idPedido ? `Despacho del pedido #${item.idPedido}` : `Despacho #${item.idReferencia}`
   return { AJUSTE: 'Ajuste', INICIAL: 'Inicial', OTRO: 'Otro' }[item.origen]
 }
 async function cargarMovimientos(): Promise<void> {
@@ -343,7 +343,7 @@ onBeforeUnmount(cancelarBusqueda)
         <Column header="Cantidad" header-class="numero" body-class="numero"><template #body="{ data }">{{ signoMovimiento(data.tipo) }}{{ formatearCantidad(data.cantidad) }}<span class="unidad">{{ productoHistorial ? unidad(productoHistorial) : '' }}</span></template></Column>
         <Column header="Origen"><template #body="{ data }">
           <RouterLink v-if="data.origen === 'PRODUCCION' && data.idReferencia && puedeVerProduccion" :to="{ name: 'produccion-detalle', params: { id: data.idReferencia } }">{{ etiquetaOrigen(data) }}</RouterLink>
-          <RouterLink v-else-if="data.origen === 'DESPACHO' && data.idReferencia && puedeVerPedido" :to="{ name: 'pedido', params: { id: data.idReferencia } }">{{ etiquetaOrigen(data) }}</RouterLink>
+          <RouterLink v-else-if="data.origen === 'DESPACHO' && data.idPedido && puedeVerPedido" :to="{ name: 'pedido', params: { id: data.idPedido } }">{{ etiquetaOrigen(data) }}</RouterLink>
           <span v-else>{{ etiquetaOrigen(data) }}</span>
         </template></Column>
         <Column header="Usuario"><template #body="{ data }">{{ data.usuario ?? '—' }}</template></Column>

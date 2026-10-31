@@ -110,9 +110,12 @@ public class ProduccionService {
             List<InsumosProduccionDTO.Insumo> resultado = new ArrayList<>();
             for (Map.Entry<Long, Acumulado> entrada : insumos.entrySet()) {
                 Acumulado dato = entrada.getValue();
-                BigDecimal requerido = dato.requerido.setScale(3, RoundingMode.HALF_UP);
                 BigDecimal disponible = dato.disponible == null ? BigDecimal.ZERO : dato.disponible;
-                BigDecimal faltante = requerido.subtract(disponible).max(BigDecimal.ZERO);
+                // Se compara sin redondear, como SP_SALIDA; el faltante se redondea hacia
+                // arriba para que una falta de 0.0004 se vea como 0.001 y no como 0.
+                BigDecimal faltante = dato.requerido.subtract(disponible).max(BigDecimal.ZERO)
+                        .setScale(3, RoundingMode.UP);
+                BigDecimal requerido = dato.requerido.setScale(3, RoundingMode.UP);
                 resultado.add(new InsumosProduccionDTO.Insumo(entrada.getKey(), dato.nombre,
                         dato.unidad, requerido, disponible, faltante, dato.sinInventario));
             }

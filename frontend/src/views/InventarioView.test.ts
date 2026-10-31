@@ -78,7 +78,7 @@ describe('InventarioView', () => {
     responder({ ...vacia, total: 1, items: [harina] })
     api.listarMovimientos.mockResolvedValue({ ...vacia, total: 25, items: [{ idMovimiento: 11,
       fecha: '2026-10-31T08:00:00', tipo: 'SALIDA', cantidad: 2, origen: 'PRODUCCION',
-      idReferencia: 5, usuario: null, observacion: 'Prueba' }] })
+      idReferencia: 5, idPedido: null, usuario: null, observacion: 'Prueba' }] })
     const wrapper = await montar()
     await wrapper.find('[aria-label="Ver movimientos de Harina"]').trigger('click')
     await flushPromises()
@@ -100,9 +100,9 @@ describe('InventarioView', () => {
     responder({ ...vacia, total: 1, items: [harina] })
     api.listarMovimientos.mockResolvedValue({ ...vacia, total: 2, items: [
       { idMovimiento: 1, fecha: '2026-10-31T08:00:00', tipo: 'ENTRADA', cantidad: 2,
-        origen: 'PRODUCCION', idReferencia: 5, usuario: 'Ana', observacion: null },
+        origen: 'PRODUCCION', idReferencia: 5, idPedido: null, usuario: 'Ana', observacion: null },
       { idMovimiento: 2, fecha: '2026-10-31T07:00:00', tipo: 'SALIDA', cantidad: 1,
-        origen: 'DESPACHO', idReferencia: 7, usuario: null, observacion: null },
+        origen: 'DESPACHO', idReferencia: 7, idPedido: 61, usuario: null, observacion: null },
     ] })
     const wrapper = await montar()
     await wrapper.find('[aria-label="Ver movimientos de Harina"]').trigger('click')
@@ -110,6 +110,8 @@ describe('InventarioView', () => {
     const enlaces = wrapper.find('.dialogo-stub').findAll('a').map((item) => item.attributes('data-to'))
     expect(enlaces.some((item) => item?.includes('produccion-detalle'))).toBe(produccion)
     expect(enlaces.some((item) => item?.includes('"pedido"'))).toBe(pedido)
+    // El enlace del despacho va al pedido (61), no al ID del despacho (7).
+    if (pedido) expect(enlaces.some((item) => item?.includes('"pedido"') && item.includes('61'))).toBe(true)
   })
 
   it('muestra historial vacío, error y reintento', async () => {
