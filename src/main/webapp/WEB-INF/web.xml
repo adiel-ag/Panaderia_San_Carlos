@@ -9,7 +9,8 @@
         </session-timeout>
         <!-- Cookie de sesion: JavaScript no puede leerla (http-only) y el
              navegador solo la envia en peticiones de esta misma aplicacion
-             (SameSite=Strict). En produccion con HTTPS agregar <secure>true</secure>. -->
+             (SameSite=Strict). El perfil Maven produccion usa web-produccion.xml
+             con Secure=true para HTTPS. -->
         <cookie-config>
             <http-only>true</http-only>
             <attribute>
