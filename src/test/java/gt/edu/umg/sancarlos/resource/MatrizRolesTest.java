@@ -3,6 +3,10 @@ package gt.edu.umg.sancarlos.resource;
 import gt.edu.umg.sancarlos.dto.CrearPedidoDTO;
 import gt.edu.umg.sancarlos.dto.ExistenciaDTO;
 import gt.edu.umg.sancarlos.dto.RecetaActivaDTO;
+import gt.edu.umg.sancarlos.dto.NuevaRecetaDTO;
+import gt.edu.umg.sancarlos.dto.RecetaDetalleDTO;
+import gt.edu.umg.sancarlos.dto.RecetaResumenDTO;
+import gt.edu.umg.sancarlos.dto.RecetaVersionDTO;
 import gt.edu.umg.sancarlos.dto.ActualizarUsuarioDTO;
 import gt.edu.umg.sancarlos.dto.CrearUsuarioDTO;
 import gt.edu.umg.sancarlos.dto.Pagina;
@@ -85,6 +89,10 @@ class MatrizRolesTest {
             Map.entry("ProductoResource.listarProductos", TODOS),
             Map.entry("ProductoResource.buscarProductoPorId", TODOS),
             Map.entry("RecetaResource.buscarRecetaActiva", TODOS),
+            Map.entry("RecetaResource.listarRecetas", Set.of(ADMIN, GERENTE, PRODUCCION)),
+            Map.entry("RecetaResource.buscarReceta", Set.of(ADMIN, GERENTE, PRODUCCION)),
+            Map.entry("RecetaResource.listarVersiones", Set.of(ADMIN, GERENTE, PRODUCCION)),
+            Map.entry("RecetaResource.crearReceta", Set.of(ADMIN, PRODUCCION)),
             Map.entry("PedidoResource.crearPedido", Set.of(ADMIN, SUCURSAL)),
             Map.entry("PedidoResource.buscarPedidoPorId", Set.of(ADMIN, GERENTE, SUCURSAL, PRODUCCION, DESPACHO)),
             Map.entry("PedidoResource.listarPedidos", Set.of(ADMIN, GERENTE, SUCURSAL, PRODUCCION, DESPACHO)),
@@ -117,6 +125,11 @@ class MatrizRolesTest {
             Map.entry("ProductoResource.listarProductos", new CasoHttp("GET", "productos", null)),
             Map.entry("ProductoResource.buscarProductoPorId", new CasoHttp("GET", "productos/33", null)),
             Map.entry("RecetaResource.buscarRecetaActiva", new CasoHttp("GET", "recetas/productos/33/activa", null)),
+            Map.entry("RecetaResource.listarRecetas", new CasoHttp("GET", "recetas", null)),
+            Map.entry("RecetaResource.buscarReceta", new CasoHttp("GET", "recetas/9", null)),
+            Map.entry("RecetaResource.listarVersiones", new CasoHttp("GET", "recetas/productos/33/versiones", null)),
+            Map.entry("RecetaResource.crearReceta", new CasoHttp("POST", "recetas",
+                    "{\"idProducto\":33,\"rendimiento\":10,\"ingredientes\":[{\"idInsumo\":2,\"cantidad\":1.5}]}")),
             Map.entry("PedidoResource.crearPedido", new CasoHttp("POST", "pedidos", "{\"idSucursal\":1}")),
             Map.entry("PedidoResource.buscarPedidoPorId", new CasoHttp("GET", "pedidos/2", null)),
             Map.entry("PedidoResource.listarPedidos", new CasoHttp("GET", "pedidos", null)),
@@ -234,6 +247,15 @@ class MatrizRolesTest {
         }
     }
 
+    @Test
+    void guardarRecetaSoloAdministradorYProduccion() {
+        for (String rol : TODOS) {
+            int esperado = Set.of(ADMIN, PRODUCCION).contains(rol) ? 201 : 403;
+            assertEquals(esperado, llamar(rol, "POST", "recetas",
+                    "{\"idProducto\":33,\"rendimiento\":1,\"ingredientes\":[]}"), rol);
+        }
+    }
+
     private static int llamar(String rol, String metodo, String ruta, String json) {
         PeticionFalsa peticion = new PeticionFalsa();
         ApplicationHandler handler = new ApplicationHandler(new ResourceConfig()
@@ -253,6 +275,17 @@ class MatrizRolesTest {
                     public RecetaActivaDTO buscarRecetaActiva(long idProducto) {
                         return new RecetaActivaDTO(idProducto, 9);
                     }
+
+                    private RecetaDetalleDTO receta() {
+                        return new RecetaDetalleDTO(9, 33, "Pan", "UND", 1, BigDecimal.TEN,
+                                "ACTIVA", LocalDate.of(2026, 10, 31), null, true, List.of());
+                    }
+                    @Override public List<RecetaResumenDTO> listar() { return List.of(); }
+                    @Override public RecetaDetalleDTO buscarPorId(long idReceta) { return receta(); }
+                    @Override public List<RecetaVersionDTO> listarVersiones(long idProducto) {
+                        return List.of();
+                    }
+                    @Override public RecetaDetalleDTO crear(NuevaRecetaDTO solicitud) { return receta(); }
                 }))
                 .register(new PedidoResource(new PedidoService() {
                     @Override

@@ -113,6 +113,25 @@ ordenan en fila durante los milisegundos que dura cada validación. Una clave
 incorrecta se informa como resultado y no como error, para que quien llama
 haga `COMMIT` y el intento fallido quede contado.
 
+## Versiones de receta
+
+Una receta nunca se modifica ni se borra: `PRODUCCION_DETALLE.id_receta` apunta
+a la versión usada en cada producción. Cambiar la receta de un producto es
+guardar una versión nueva (`POST /api/recetas`), que la aplicación escribe con
+SQL directo sobre `RECETA` y `RECETA_DETALLE` (no hay procedimiento en
+`PKG_RECETA` para esto). En una sola transacción:
+
+1. Reserva la fila del producto (`SELECT ... FOR UPDATE`), para que dos
+   guardados simultáneos no dejen dos versiones activas.
+2. Calcula `MAX(version) + 1` (1 si no hay ninguna).
+3. Cierra las versiones `ACTIVA` del producto: `estado = 'INACTIVA'` y
+   `fecha_fin = SYSDATE`; quedan como historial.
+4. Inserta la versión nueva con `estado = 'ACTIVA'` y `fecha_inicio = SYSDATE`,
+   que `FN_RECETA_ACTIVA` reconoce de inmediato, y sus ingredientes.
+
+Si otro guardado gana la carrera, `uq_receta_producto_version` (ORA-00001) se
+informa como conflicto y todo se revierte.
+
 ## Diferencias con los scripts originales
 
 Los scripts originales están fuera del repositorio, en

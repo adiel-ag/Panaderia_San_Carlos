@@ -22,7 +22,9 @@ import gt.edu.umg.sancarlos.exception.ProduccionConflictoException;
 import gt.edu.umg.sancarlos.exception.ProduccionNoEncontradaException;
 import gt.edu.umg.sancarlos.exception.ProduccionSolicitudInvalidaException;
 import gt.edu.umg.sancarlos.exception.RecetaAmbiguaException;
+import gt.edu.umg.sancarlos.exception.RecetaConflictoException;
 import gt.edu.umg.sancarlos.exception.RecetaNoEncontradaException;
+import gt.edu.umg.sancarlos.exception.RecetaSolicitudInvalidaException;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
@@ -76,7 +78,8 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
                 || exception instanceof PedidoSolicitudInvalidaException
                 || exception instanceof ProduccionSolicitudInvalidaException
                 || exception instanceof InventarioSolicitudInvalidaException
-                || exception instanceof UsuarioSolicitudInvalidaException) {
+                || exception instanceof UsuarioSolicitudInvalidaException
+                || exception instanceof RecetaSolicitudInvalidaException) {
             return crearRespuesta(Response.Status.BAD_REQUEST,
                     "Solicitud inválida", exception.getMessage());
         }
@@ -91,6 +94,7 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
                     "Recurso no encontrado", exception.getMessage());
         }
         if (exception instanceof RecetaAmbiguaException
+                || exception instanceof RecetaConflictoException
                 || exception instanceof PedidoConflictoException
                 || exception instanceof ProduccionConflictoException
                 || exception instanceof InventarioConflictoException
