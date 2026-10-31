@@ -4,16 +4,17 @@ export type OpcionMenu = {
   nombre: 'inicio' | 'pedidos' | 'produccion' | 'inventario' | 'despacho' | 'usuarios'
   etiqueta: string
   icono: string
+  descripcion: string
   roles: readonly Rol[]
 }
 
 export const menu: readonly OpcionMenu[] = [
-  { nombre: 'inicio', etiqueta: 'Inicio', icono: 'pi pi-home', roles: ROLES },
-  { nombre: 'pedidos', etiqueta: 'Pedidos', icono: 'pi pi-shopping-bag', roles: ['ADMINISTRADOR', 'GERENTE', 'SUCURSAL', 'PRODUCCION', 'DESPACHO'] },
-  { nombre: 'produccion', etiqueta: 'Producción', icono: 'pi pi-cog', roles: ['ADMINISTRADOR', 'GERENTE', 'PRODUCCION'] },
-  { nombre: 'inventario', etiqueta: 'Inventario', icono: 'pi pi-box', roles: ['ADMINISTRADOR', 'GERENTE', 'PRODUCCION', 'BODEGA', 'DESPACHO'] },
-  { nombre: 'despacho', etiqueta: 'Despacho', icono: 'pi pi-truck', roles: ['ADMINISTRADOR', 'DESPACHO'] },
-  { nombre: 'usuarios', etiqueta: 'Usuarios', icono: 'pi pi-users', roles: ['ADMINISTRADOR'] },
+  { nombre: 'inicio', etiqueta: 'Inicio', icono: 'pi pi-home', descripcion: 'Resumen y accesos a tus módulos.', roles: ROLES },
+  { nombre: 'pedidos', etiqueta: 'Pedidos', icono: 'pi pi-shopping-bag', descripcion: 'Registra y sigue los pedidos de cada sucursal.', roles: ['ADMINISTRADOR', 'GERENTE', 'SUCURSAL', 'PRODUCCION', 'DESPACHO'] },
+  { nombre: 'produccion', etiqueta: 'Producción', icono: 'pi pi-cog', descripcion: 'Planifica las horneadas y registra lo producido.', roles: ['ADMINISTRADOR', 'GERENTE', 'PRODUCCION'] },
+  { nombre: 'inventario', etiqueta: 'Inventario', icono: 'pi pi-box', descripcion: 'Consulta existencias y registra entradas y salidas.', roles: ['ADMINISTRADOR', 'GERENTE', 'PRODUCCION', 'BODEGA', 'DESPACHO'] },
+  { nombre: 'despacho', etiqueta: 'Despacho', icono: 'pi pi-truck', descripcion: 'Despacha los pedidos listos a cada sucursal.', roles: ['ADMINISTRADOR', 'DESPACHO'] },
+  { nombre: 'usuarios', etiqueta: 'Usuarios', icono: 'pi pi-users', descripcion: 'Administra cuentas, roles y contraseñas.', roles: ['ADMINISTRADOR'] },
 ]
 
 export function opcionesMenu(rol: Rol | null): OpcionMenu[] {

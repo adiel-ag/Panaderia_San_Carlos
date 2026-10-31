@@ -7,3 +7,4 @@ nbproject/private/
 !.env.example
 *.log
 .idea/
+.taste-skill/

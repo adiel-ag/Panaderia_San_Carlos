@@ -1,0 +1,61 @@
+:root {
+  --psc-fondo: #F6EEDF;
+  --psc-superficie: #FFFBF3;
+  --psc-campo: #FFFFFF;
+  --psc-texto: #3A2417;
+  --psc-suave: #6E5443;
+  --psc-borde: #E3D2B8;
+  --psc-acento: #9A4A1C;
+  --psc-sobre-acento: #FFF8EE;
+  --psc-barra: #4A2C1A;
+  --psc-sobre-barra: #FBEBD4;
+  --psc-cabecera-tabla: #F3E4CC;
+  --psc-activo-fondo: #F0DDBF;
+  --psc-activo-texto: #7A3812;
+  --psc-pan: #D9964F;
+  --psc-pan-borde: #9A5A24;
+  --psc-pan-corte: #F4D49A;
+  --psc-trigo: #C9973E;
+  --psc-sombra: #E6D5BA;
+  --psc-error: #B91C1C;
+  --psc-estado-pendiente-fondo: #FBE9B7;
+  --psc-estado-pendiente-texto: #6B4A00;
+  --psc-estado-produccion-fondo: #F8D9C2;
+  --psc-estado-produccion-texto: #7A3210;
+  --psc-estado-listo-fondo: #D5EBDD;
+  --psc-estado-listo-texto: #1E5A36;
+  --psc-estado-despachado-fondo: #E1E6EF;
+  --psc-estado-despachado-texto: #36435A;
+  --psc-fuente-titulos: 'Fraunces Variable', Georgia, serif;
+  --psc-fuente-texto: 'Nunito Sans Variable', sans-serif;
+}
+
+.tema-oscuro {
+  --psc-fondo: #1C130E;
+  --psc-superficie: #271B14;
+  --psc-campo: #1F1611;
+  --psc-texto: #F4E6D2;
+  --psc-suave: #C9B39B;
+  --psc-borde: #43322A;
+  --psc-acento: #E39A55;
+  --psc-sobre-acento: #26150A;
+  --psc-barra: #120C08;
+  --psc-sobre-barra: #F4E6D2;
+  --psc-cabecera-tabla: #30221A;
+  --psc-activo-fondo: #3A281D;
+  --psc-activo-texto: #F2B877;
+  --psc-pan: #B87638;
+  --psc-pan-borde: #7A4A1E;
+  --psc-pan-corte: #E9C17E;
+  --psc-trigo: #B88C42;
+  --psc-sombra: #120C08;
+  --psc-error: #FFB4A8;
+  --psc-estado-pendiente-fondo: #4A3A1A;
+  --psc-estado-pendiente-texto: #F2D48A;
+  --psc-estado-produccion-fondo: #4A2A1A;
+  --psc-estado-produccion-texto: #F5B98A;
+  --psc-estado-listo-fondo: #1F3A2A;
+  --psc-estado-listo-texto: #9FD8B4;
+  --psc-estado-despachado-fondo: #2A2F3A;
+  --psc-estado-despachado-texto: #B8C6E0;
+}

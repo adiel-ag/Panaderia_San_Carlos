@@ -40,24 +40,27 @@ async function guardar(): Promise<void> {
 <template>
   <section class="pagina pagina-formulario">
     <h1>Cambiar contraseña</h1>
-    <Message v-if="errorServidor" severity="error" aria-live="polite">{{ errorServidor }}</Message>
-    <form class="formulario" @submit.prevent="guardar">
-      <div class="campo">
-        <label for="clave-actual">Contraseña actual</label>
-        <Password input-id="clave-actual" v-model="actual" :feedback="false" toggle-mask autocomplete="current-password" fluid :invalid="!!errores.actual" />
-        <small v-if="errores.actual" class="error-campo">{{ errores.actual }}</small>
-      </div>
-      <div class="campo">
-        <label for="clave-nueva">Contraseña nueva</label>
-        <Password input-id="clave-nueva" v-model="nueva" toggle-mask autocomplete="new-password" fluid :invalid="!!errores.nueva" />
-        <small v-if="errores.nueva" class="error-campo">{{ errores.nueva }}</small>
-      </div>
-      <div class="campo">
-        <label for="clave-confirmar">Confirmar contraseña nueva</label>
-        <Password input-id="clave-confirmar" v-model="confirmar" :feedback="false" toggle-mask autocomplete="new-password" fluid :invalid="!!errores.confirmar" />
-        <small v-if="errores.confirmar" class="error-campo">{{ errores.confirmar }}</small>
-      </div>
-      <Button type="submit" label="Actualizar contraseña" :loading="enviando" :disabled="enviando" />
-    </form>
+    <div class="clave-card">
+      <Message v-if="errorServidor" severity="error" aria-live="polite">{{ errorServidor }}</Message>
+      <form class="formulario" @submit.prevent="guardar">
+        <div class="campo">
+          <label for="clave-actual">Contraseña actual</label>
+          <Password input-id="clave-actual" v-model="actual" :feedback="false" toggle-mask autocomplete="current-password" fluid :invalid="!!errores.actual" />
+          <small v-if="errores.actual" class="error-campo">{{ errores.actual }}</small>
+        </div>
+        <div class="campo">
+          <label for="clave-nueva">Contraseña nueva</label>
+          <Password input-id="clave-nueva" v-model="nueva" toggle-mask autocomplete="new-password" fluid :invalid="!!errores.nueva" :input-props="{ 'aria-describedby': 'clave-nueva-ayuda' }" />
+          <small id="clave-nueva-ayuda" class="ayuda-campo">Entre 8 y 128 caracteres, distinta de la actual.</small>
+          <small v-if="errores.nueva" class="error-campo">{{ errores.nueva }}</small>
+        </div>
+        <div class="campo">
+          <label for="clave-confirmar">Confirmar contraseña nueva</label>
+          <Password input-id="clave-confirmar" v-model="confirmar" :feedback="false" toggle-mask autocomplete="new-password" fluid :invalid="!!errores.confirmar" />
+          <small v-if="errores.confirmar" class="error-campo">{{ errores.confirmar }}</small>
+        </div>
+        <Button type="submit" label="Actualizar contraseña" :loading="enviando" :disabled="enviando" />
+      </form>
+    </div>
   </section>
 </template>

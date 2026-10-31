@@ -7,6 +7,8 @@ import { useToast } from 'primevue/usetoast'
 import { etiquetaRol } from '../api/roles'
 import { opcionesMenu } from '../router/menu'
 import { useSesionStore } from '../stores/sesion'
+import BotonTema from '../components/BotonTema.vue'
+import LogoPanaderia from '../components/LogoPanaderia.vue'
 
 const sesion = useSesionStore()
 const router = useRouter()
@@ -36,17 +38,18 @@ async function cerrarSesion(): Promise<void> {
   <div class="app-layout">
     <header class="barra-superior">
       <Button class="boton-menu" icon="pi pi-bars" aria-label="Abrir menú" text @click="menuAbierto = true" />
-      <RouterLink class="marca" :to="{ name: 'inicio' }">Panadería San Carlos</RouterLink>
+      <RouterLink class="marca" :to="{ name: 'inicio' }"><LogoPanaderia /></RouterLink>
       <div class="barra-usuario">
         <span class="identidad"><strong>{{ sesion.usuario?.nombre }}</strong><small>{{ etiquetaRol(sesion.rol) }}</small></span>
         <RouterLink class="enlace-clave" :to="{ name: 'mi-clave' }">Cambiar contraseña</RouterLink>
+        <BotonTema />
         <Button id="cerrar-sesion" label="Cerrar sesión" text :loading="cerrando" @click="cerrarSesion" />
       </div>
     </header>
     <div class="app-cuerpo">
       <aside class="navegacion-lateral" aria-label="Módulos">
         <nav>
-          <RouterLink v-for="opcion in opcionesMenu(sesion.rol)" :key="opcion.nombre" class="enlace-menu" :to="{ name: opcion.nombre }">
+          <RouterLink v-for="opcion in opcionesMenu(sesion.rol)" :key="opcion.nombre" class="enlace-menu" :data-modulo="opcion.nombre" :to="{ name: opcion.nombre }">
             <i :class="opcion.icono" aria-hidden="true" />{{ opcion.etiqueta }}
           </RouterLink>
         </nav>
@@ -55,7 +58,7 @@ async function cerrarSesion(): Promise<void> {
     </div>
     <Drawer v-model:visible="menuAbierto" header="Panadería San Carlos" class="cajon-menu">
       <nav aria-label="Módulos">
-        <RouterLink v-for="opcion in opcionesMenu(sesion.rol)" :key="opcion.nombre" class="enlace-menu" :to="{ name: opcion.nombre }" @click="menuAbierto = false">
+        <RouterLink v-for="opcion in opcionesMenu(sesion.rol)" :key="opcion.nombre" class="enlace-menu" :data-modulo="opcion.nombre" :to="{ name: opcion.nombre }" @click="menuAbierto = false">
           <i :class="opcion.icono" aria-hidden="true" />{{ opcion.etiqueta }}
         </RouterLink>
       </nav>

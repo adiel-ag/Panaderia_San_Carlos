@@ -2,17 +2,22 @@ import { createApp } from 'vue'
 import PrimeVue from 'primevue/config'
 import ToastService from 'primevue/toastservice'
 import ConfirmationService from 'primevue/confirmationservice'
-import Aura from '@primeuix/themes/aura'
+import { presetCorteza } from './tema/preset'
+import { iniciarTema } from './tema/useTema'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import 'primeicons/primeicons.css'
+import '@fontsource-variable/fraunces/wght.css'
+import '@fontsource-variable/nunito-sans/wght.css'
+import './tema/tokens.css'
 import './style.css'
 
+iniciarTema()
 const app = createApp(App)
 
 app.use(PrimeVue, {
-  theme: { preset: Aura },
+  theme: { preset: presetCorteza, options: { darkModeSelector: '.tema-oscuro' } },
   locale: {
     startsWith: 'Empieza con',
     contains: 'Contiene',

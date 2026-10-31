@@ -9,6 +9,9 @@ import Message from 'primevue/message'
 import { ApiError } from '../api/cliente'
 import { rutaSegura } from '../router/guardia'
 import { useSesionStore } from '../stores/sesion'
+import BotonTema from '../components/BotonTema.vue'
+import LogoPanaderia from '../components/LogoPanaderia.vue'
+import IlustracionPan from '../components/IlustracionPan.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -38,9 +41,10 @@ async function ingresar(): Promise<void> {
 
 <template>
   <main class="acceso">
+    <BotonTema class="acceso-tema" />
     <Card class="acceso-card">
-      <template #title>Panadería San Carlos</template>
-      <template #subtitle>Iniciar sesión</template>
+      <template #title><IlustracionPan class="acceso-ilustracion" /><h1 class="acceso-titulo"><LogoPanaderia tamano="grande" /></h1></template>
+      <template #subtitle>Sistema de gestión · Iniciar sesión</template>
       <template #content>
         <Message v-if="route.query.aviso === 'sin-conexion'" severity="warn">
           No se pudo comprobar la sesión. Verifique la conexión e intente de nuevo.
