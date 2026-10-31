@@ -25,6 +25,9 @@ import gt.edu.umg.sancarlos.exception.RecetaAmbiguaException;
 import gt.edu.umg.sancarlos.exception.RecetaConflictoException;
 import gt.edu.umg.sancarlos.exception.RecetaNoEncontradaException;
 import gt.edu.umg.sancarlos.exception.RecetaSolicitudInvalidaException;
+import gt.edu.umg.sancarlos.exception.CatalogoSolicitudInvalidaException;
+import gt.edu.umg.sancarlos.exception.CatalogoNoEncontradoException;
+import gt.edu.umg.sancarlos.exception.CatalogoConflictoException;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
@@ -79,7 +82,8 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
                 || exception instanceof ProduccionSolicitudInvalidaException
                 || exception instanceof InventarioSolicitudInvalidaException
                 || exception instanceof UsuarioSolicitudInvalidaException
-                || exception instanceof RecetaSolicitudInvalidaException) {
+                || exception instanceof RecetaSolicitudInvalidaException
+                || exception instanceof CatalogoSolicitudInvalidaException) {
             return crearRespuesta(Response.Status.BAD_REQUEST,
                     "Solicitud inválida", exception.getMessage());
         }
@@ -89,7 +93,8 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
                 || exception instanceof ProduccionNoEncontradaException
                 || exception instanceof InventarioNoEncontradoException
                 || exception instanceof DespachoNoEncontradoException
-                || exception instanceof UsuarioNoEncontradoException) {
+                || exception instanceof UsuarioNoEncontradoException
+                || exception instanceof CatalogoNoEncontradoException) {
             return crearRespuesta(Response.Status.NOT_FOUND,
                     "Recurso no encontrado", exception.getMessage());
         }
@@ -99,7 +104,8 @@ public class ApiExceptionMapper implements ExceptionMapper<Exception> {
                 || exception instanceof ProduccionConflictoException
                 || exception instanceof InventarioConflictoException
                 || exception instanceof DespachoConflictoException
-                || exception instanceof UsuarioConflictoException) {
+                || exception instanceof UsuarioConflictoException
+                || exception instanceof CatalogoConflictoException) {
             return crearRespuesta(Response.Status.CONFLICT,
                     "Conflicto de negocio", exception.getMessage());
         }

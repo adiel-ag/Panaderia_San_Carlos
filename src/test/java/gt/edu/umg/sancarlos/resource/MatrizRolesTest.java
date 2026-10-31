@@ -15,6 +15,9 @@ import gt.edu.umg.sancarlos.dto.ProduccionResumenDTO;
 import gt.edu.umg.sancarlos.dto.ProduccionConPedidosDTO;
 import gt.edu.umg.sancarlos.dto.ExistenciaResumenDTO;
 import gt.edu.umg.sancarlos.dto.UsuarioDTO;
+import gt.edu.umg.sancarlos.dto.ProductoSolicitudDTO;
+import gt.edu.umg.sancarlos.dto.SucursalSolicitudDTO;
+import gt.edu.umg.sancarlos.dto.SucursalAdminDTO;
 import gt.edu.umg.sancarlos.model.Despacho;
 import gt.edu.umg.sancarlos.model.Pedido;
 import gt.edu.umg.sancarlos.model.Producto;
@@ -30,6 +33,7 @@ import gt.edu.umg.sancarlos.service.AutenticacionService;
 import gt.edu.umg.sancarlos.service.AutenticacionService.SesionIniciada;
 import gt.edu.umg.sancarlos.service.CatalogoService;
 import gt.edu.umg.sancarlos.service.UsuarioService;
+import gt.edu.umg.sancarlos.service.SucursalAdminService;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
@@ -88,6 +92,11 @@ class MatrizRolesTest {
     private static final Map<String, Set<String>> MATRIZ = Map.ofEntries(
             Map.entry("ProductoResource.listarProductos", TODOS),
             Map.entry("ProductoResource.buscarProductoPorId", TODOS),
+            Map.entry("ProductoResource.crearProducto", Set.of(ADMIN, BODEGA)),
+            Map.entry("ProductoResource.actualizarProducto", Set.of(ADMIN, BODEGA)),
+            Map.entry("ProductoResource.cambiarEstado", Set.of(ADMIN, BODEGA)),
+            Map.entry("CatalogoResource.unidades", TODOS),
+            Map.entry("CatalogoResource.tiposProducto", TODOS),
             Map.entry("RecetaResource.buscarRecetaActiva", TODOS),
             Map.entry("RecetaResource.listarRecetas", Set.of(ADMIN, GERENTE, PRODUCCION)),
             Map.entry("RecetaResource.buscarReceta", Set.of(ADMIN, GERENTE, PRODUCCION)),
@@ -114,6 +123,10 @@ class MatrizRolesTest {
             Map.entry("DespachoResource.buscarDespacho", Set.of(ADMIN, GERENTE, SUCURSAL, DESPACHO)),
             Map.entry("RolResource.listarRoles", TODOS),
             Map.entry("SucursalResource.listarSucursales", TODOS),
+            Map.entry("SucursalResource.listarTodas", Set.of(ADMIN)),
+            Map.entry("SucursalResource.crearSucursal", Set.of(ADMIN)),
+            Map.entry("SucursalResource.actualizarSucursal", Set.of(ADMIN)),
+            Map.entry("SucursalResource.cambiarEstado", Set.of(ADMIN)),
             Map.entry("AuthResource.cambiarClave", TODOS),
             Map.entry("UsuarioResource.listarUsuarios", Set.of(ADMIN)),
             Map.entry("UsuarioResource.buscarUsuario", Set.of(ADMIN)),
@@ -126,6 +139,11 @@ class MatrizRolesTest {
     private static final Map<String, CasoHttp> CASOS_HTTP = Map.ofEntries(
             Map.entry("ProductoResource.listarProductos", new CasoHttp("GET", "productos", null)),
             Map.entry("ProductoResource.buscarProductoPorId", new CasoHttp("GET", "productos/33", null)),
+            Map.entry("ProductoResource.crearProducto", new CasoHttp("POST", "productos", "{\"nombre\":\"Pan\",\"idTipoProducto\":1,\"idUnidad\":1,\"stockMinimo\":0}")),
+            Map.entry("ProductoResource.actualizarProducto", new CasoHttp("PUT", "productos/33", "{\"nombre\":\"Pan\",\"idTipoProducto\":1,\"idUnidad\":1,\"stockMinimo\":0}")),
+            Map.entry("ProductoResource.cambiarEstado", new CasoHttp("PUT", "productos/33/estado", "{\"estado\":\"INACTIVO\"}")),
+            Map.entry("CatalogoResource.unidades", new CasoHttp("GET", "catalogo/unidades", null)),
+            Map.entry("CatalogoResource.tiposProducto", new CasoHttp("GET", "catalogo/tipos-producto", null)),
             Map.entry("RecetaResource.buscarRecetaActiva", new CasoHttp("GET", "recetas/productos/33/activa", null)),
             Map.entry("RecetaResource.listarRecetas", new CasoHttp("GET", "recetas", null)),
             Map.entry("RecetaResource.buscarReceta", new CasoHttp("GET", "recetas/9", null)),
@@ -153,6 +171,10 @@ class MatrizRolesTest {
             Map.entry("DespachoResource.buscarDespacho", new CasoHttp("GET", "pedidos/2/despacho", null)),
             Map.entry("RolResource.listarRoles", new CasoHttp("GET", "roles", null)),
             Map.entry("SucursalResource.listarSucursales", new CasoHttp("GET", "sucursales", null)),
+            Map.entry("SucursalResource.listarTodas", new CasoHttp("GET", "sucursales/todas", null)),
+            Map.entry("SucursalResource.crearSucursal", new CasoHttp("POST", "sucursales", "{\"nombre\":\"Centro\"}")),
+            Map.entry("SucursalResource.actualizarSucursal", new CasoHttp("PUT", "sucursales/7", "{\"nombre\":\"Centro\"}")),
+            Map.entry("SucursalResource.cambiarEstado", new CasoHttp("PUT", "sucursales/7/estado", "{\"estado\":\"INACTIVO\"}")),
             Map.entry("AuthResource.cambiarClave", new CasoHttp("PUT", "auth/clave", "{\"claveActual\":\"anterior-1\",\"claveNueva\":\"nueva-clave-1\"}")),
             Map.entry("UsuarioResource.listarUsuarios", new CasoHttp("GET", "usuarios", null)),
             Map.entry("UsuarioResource.buscarUsuario", new CasoHttp("GET", "usuarios/7", null)),
@@ -273,6 +295,13 @@ class MatrizRolesTest {
                     public Optional<Producto> buscarProductoPorId(long idProducto) {
                         return Optional.of(new Producto());
                     }
+                    @Override public Producto crear(ProductoSolicitudDTO solicitud) { return new Producto(); }
+                    @Override public Producto actualizar(long id, ProductoSolicitudDTO solicitud) { return new Producto(); }
+                    @Override public Producto cambiarEstado(long id, String estado) { return new Producto(); }
+                }))
+                .register(new CatalogoResource(new CatalogoService() {
+                    @Override public List<gt.edu.umg.sancarlos.dto.UnidadCatalogoDTO> unidades() { return List.of(); }
+                    @Override public List<gt.edu.umg.sancarlos.dto.TipoProductoDTO> tiposProducto() { return List.of(); }
                 }))
                 .register(new RecetaResource(new RecetaService() {
                     @Override
@@ -402,6 +431,12 @@ class MatrizRolesTest {
                 }))
                 .register(new SucursalResource(new CatalogoService() {
                     @Override public List<gt.edu.umg.sancarlos.dto.SucursalDTO> sucursales() { return List.of(); }
+                }, new SucursalAdminService() {
+                    private SucursalAdminDTO sucursal() { return new SucursalAdminDTO(7, "Centro", null, null, "ACTIVO", 0, 0); }
+                    @Override public List<SucursalAdminDTO> listar() { return List.of(sucursal()); }
+                    @Override public SucursalAdminDTO crear(SucursalSolicitudDTO solicitud) { return sucursal(); }
+                    @Override public SucursalAdminDTO actualizar(long id, SucursalSolicitudDTO solicitud) { return sucursal(); }
+                    @Override public SucursalAdminDTO cambiarEstado(long id, String estado) { return sucursal(); }
                 }))
                 .register(new AuthResource(new AutenticacionService() {
                     @Override public SesionIniciada cambiarClave(UsuarioSesion usuario,

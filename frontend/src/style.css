@@ -321,6 +321,19 @@ h1, h2 { line-height: 1.2; }
 .consumo-linea { display: flex; align-items: center; justify-content: flex-end; min-height: 44px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .conflicto-receta .enlace-pedido { margin-left: .25rem; }
 .acciones-pedido > div .p-button-text { color: var(--psc-texto); }
+/* Catálogos */
+.pagina-catalogo { width: min(100%, 84rem); }
+.resumen-catalogo { font-variant-numeric: tabular-nums; }
+.filtros-catalogo { gap: .8rem 1.25rem; }
+.filtros-catalogo .filtro-busqueda { display: grid; gap: .3rem; }
+.tabla-catalogo .p-datatable-table { min-width: 52rem; }
+.tabla-sucursales .p-datatable-table { min-width: 68rem; }
+.tabla-catalogo .p-datatable-tbody > tr > td { vertical-align: middle; }
+.acciones-catalogo { display: flex; align-items: center; gap: .35rem; white-space: nowrap; }
+.acciones-catalogo .p-button { min-height: 44px; }
+.formulario-dialogo > div:not(.acciones-dialogo) { display: grid; gap: .35rem; }
+.formulario-dialogo .p-inputtext, .formulario-dialogo .p-select, .formulario-dialogo .p-inputnumber { width: 100%; }
+.error-campo { color: var(--psc-error); }
 @media (max-width: 767px) {
   .titulo-receta .accion-titulo { margin-left: 0; }
 }

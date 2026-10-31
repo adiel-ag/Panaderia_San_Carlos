@@ -18,6 +18,10 @@ public class Producto {
     private BigDecimal stockMinimo;
     private String estado;
     private LocalDateTime fechaCreacion;
+    private boolean enUso;
+
+    public boolean isEnUso() { return enUso; }
+    public void setEnUso(boolean enUso) { this.enUso = enUso; }
 
     public long getIdProducto() {
         return idProducto;

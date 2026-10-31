@@ -24,9 +24,11 @@ const NuevaRecetaView = () => import('../views/NuevaRecetaView.vue')
 const DespachoView = () => import('../views/DespachoView.vue')
 const InventarioView = () => import('../views/InventarioView.vue')
 const UsuariosView = () => import('../views/UsuariosView.vue')
+const ProductosView = () => import('../views/ProductosView.vue')
+const SucursalesView = () => import('../views/SucursalesView.vue')
 
 // Los módulos sin pantalla propia muestran la página pendiente.
-const vistas: Partial<Record<OpcionMenu['nombre'], Component | (() => Promise<unknown>)>> = { pedidos: PedidosView, produccion: ProduccionesView, recetas: RecetasView, inventario: InventarioView, despacho: DespachoView, usuarios: UsuariosView }
+const vistas: Partial<Record<OpcionMenu['nombre'], Component | (() => Promise<unknown>)>> = { pedidos: PedidosView, produccion: ProduccionesView, recetas: RecetasView, inventario: InventarioView, productos: ProductosView, despacho: DespachoView, usuarios: UsuariosView, sucursales: SucursalesView }
 
 const router = createRouter({
   history: createWebHashHistory(),
