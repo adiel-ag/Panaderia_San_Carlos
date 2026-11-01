@@ -6,6 +6,10 @@
 #   5. Compara las filas de cada tabla entre XE y la nube.
 # La base local nunca se modifica. Las contrasenas no se imprimen.
 # Requiere en .env: PSC_CLOUD_PASSWORD. Opcionales: PSC_CLOUD_WALLET_DIR, PSC_CLOUD_SERVICIO.
+# Si las tablas de la nube ya tienen datos, el script se niega a borrarlas salvo
+# con -Reemplazar. Asi, si la copia falla despues de limpiar, no se pierde nada
+# que no exista tambien en la base local.
+param([switch] $Reemplazar)
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
@@ -64,7 +68,8 @@ function Copiador([string[]] $argumentos) {
 # Antes de borrar nada en la nube: Java, driver, conexion local (solo lectura),
 # conexion a la nube como PANADERIA y las 17 tablas locales deben funcionar.
 Write-Host '=== 0/4 Verificacion previa (no escribe nada)'
-if ((Copiador @('--verificar')) -ne 0) { throw 'La verificacion previa fallo. No se toco nada en la nube.' }
+$argsVerificar = @('--verificar'); if ($Reemplazar) { $argsVerificar += '--reemplazar' }
+if ((Copiador $argsVerificar) -ne 0) { throw 'La verificacion previa fallo. No se toco nada en la nube.' }
 $prueba = "REM inicio`nWHENEVER SQLERROR EXIT 1`nconnect PANADERIA/`"$clave`"@$servicio`nselect 'SQLPLUS_' || 'CONECTADO' from dual;`nexit" | & sqlplus -s -L /nolog
 if ($LASTEXITCODE -ne 0 -or -not ($prueba -match 'SQLPLUS_CONECTADO')) { throw 'sqlplus no pudo conectarse a la nube. No se toco nada.' }
 

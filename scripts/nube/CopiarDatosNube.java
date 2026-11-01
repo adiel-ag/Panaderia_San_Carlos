@@ -51,6 +51,17 @@ public class CopiarDatosNube {
                 // Comprobacion previa, sin escribir nada: ambas conexiones funcionan,
                 // la nube es PANADERIA en Oracle Cloud y XE tiene las 17 tablas.
                 verificarDestino(nube);
+                // La limpieza borra las tablas de la nube. Solo se permite si estan
+                // vacias o no existen: asi, aunque la copia falle despues, nunca se
+                // pierde nada que no este tambien en la base local.
+                boolean reemplazar = args.length > 1 && "--reemplazar".equals(args[1]);
+                for (String tabla : TABLAS) {
+                    long filasNube = filasEnNube(nube, tabla);
+                    if (filasNube > 0 && !reemplazar) {
+                        throw new IllegalStateException("La tabla " + tabla + " de la nube ya tiene "
+                                + filasNube + " filas. Para reemplazarlas use -Reemplazar.");
+                    }
+                }
                 for (String tabla : TABLAS) {
                     try (Statement st = local.createStatement();
                          ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM \"" + tabla + "\"")) {
@@ -84,6 +95,18 @@ public class CopiarDatosNube {
                             + " de la nube ya tiene datos; ejecute nube/00 y nube/01 antes de copiar.");
                 }
             }
+        }
+    }
+
+    /** Filas de la tabla en la nube; 0 si la tabla todavia no existe. */
+    static long filasEnNube(Connection nube, String tabla) throws SQLException {
+        try (Statement st = nube.createStatement();
+             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM \"" + tabla + "\"")) {
+            rs.next();
+            return rs.getLong(1);
+        } catch (SQLException e) {
+            if (e.getErrorCode() == 942) return 0;
+            throw e;
         }
     }
 
