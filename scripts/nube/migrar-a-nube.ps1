@@ -5,7 +5,7 @@
 #   4. database/nube/02_finalizar_nube.sql (llaves foraneas y contadores de ID)
 #   5. Compara las filas de cada tabla entre XE y la nube.
 # La base local nunca se modifica. Las contrasenas no se imprimen.
-# Requiere en .env: PSC_CLOUD_PASSWORD. Opcionales: PSC_CLOUD_WALLET_DIR, PSC_CLOUD_SERVICIO.
+# Requiere en .env: PSC_CLOUD_PASSWORD y PSC_XE_DB_URL/USER/PASSWORD (origen local). Opcionales: PSC_CLOUD_WALLET_DIR, PSC_CLOUD_SERVICIO.
 # Si las tablas de la nube ya tienen datos, el script se niega a borrarlas salvo
 # con -Reemplazar. Asi, si la copia falla despues de limpiar, no se pierde nada
 # que no exista tambien en la base local.
@@ -37,7 +37,14 @@ if (-not (Test-Path -LiteralPath (Join-Path $wallet 'cwallet.sso'))) { throw "No
 
 $env:TNS_ADMIN = $wallet
 $env:NLS_LANG = 'SPANISH_SPAIN.AL32UTF8'
-$env:DB_URL = Valor 'DB_URL'; $env:DB_USER = Valor 'DB_USER'; $env:DB_PASSWORD = Valor 'DB_PASSWORD'
+# Origen: el respaldo de la base local (PSC_XE_DB_*), nunca DB_URL, que ya
+# puede apuntar a la nube. CopiarDatosNube.java se niega si el origen es la nube.
+foreach ($n in 'PSC_XE_DB_URL', 'PSC_XE_DB_USER', 'PSC_XE_DB_PASSWORD') {
+    $v = Valor $n
+    if (-not $v) { throw "Falta $n en .env (conexion a la base local de origen). No se toco nada." }
+    Set-Item "env:$n" $v
+}
+if ($env:PSC_XE_DB_URL -match 'TNS_ADMIN') { throw 'PSC_XE_DB_URL parece de Oracle Cloud; debe ser la base local. No se toco nada.' }
 $env:PSC_CLOUD_URL = "jdbc:oracle:thin:@${servicio}?TNS_ADMIN=$($wallet -replace '\\','/')"
 $env:PSC_CLOUD_USER = 'PANADERIA'
 $env:PSC_CLOUD_PASSWORD = $clave

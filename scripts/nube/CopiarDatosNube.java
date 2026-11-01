@@ -23,7 +23,8 @@ import java.util.Properties;
  *  - Las contrasenas se leen de variables de entorno / .env y nunca se imprimen.
  *
  * Uso: java -cp ojdbc17.jar scripts/nube/CopiarDatosNube.java
- * Local: DB_URL, DB_USER, DB_PASSWORD (variables de entorno).
+ * Origen (XE local): PSC_XE_DB_URL, PSC_XE_DB_USER, PSC_XE_DB_PASSWORD (entorno o .env).
+ * Nunca usa DB_URL: la aplicacion puede estar apuntando ya a la nube.
  * Nube:  PSC_CLOUD_URL, PSC_CLOUD_USER, PSC_CLOUD_PASSWORD (entorno o .env).
  */
 public class CopiarDatosNube {
@@ -40,13 +41,14 @@ public class CopiarDatosNube {
         if (!"PANADERIA".equalsIgnoreCase(nubeUsuario)) {
             throw new IllegalStateException("El usuario de la nube debe ser PANADERIA.");
         }
-        try (Connection local = conectar(valor(env, "DB_URL", null), valor(env, "DB_USER", null),
-                    valor(env, "DB_PASSWORD", null));
+        try (Connection local = conectar(valor(env, "PSC_XE_DB_URL", null),
+                    valor(env, "PSC_XE_DB_USER", null), valor(env, "PSC_XE_DB_PASSWORD", null));
              Connection nube = conectar(valor(env, "PSC_CLOUD_URL", null), nubeUsuario,
                     valor(env, "PSC_CLOUD_PASSWORD", null))) {
             local.setReadOnly(true);
             local.setAutoCommit(false);
             nube.setAutoCommit(false);
+            verificarOrigenLocal(local);
             if (args.length > 0 && "--verificar".equals(args[0])) {
                 // Comprobacion previa, sin escribir nada: ambas conexiones funcionan,
                 // la nube es PANADERIA en Oracle Cloud y XE tiene las 17 tablas.
@@ -94,6 +96,21 @@ public class CopiarDatosNube {
                     throw new IllegalStateException("La tabla " + tabla
                             + " de la nube ya tiene datos; ejecute nube/00 y nube/01 antes de copiar.");
                 }
+            }
+        }
+    }
+
+    /**
+     * El origen debe ser la base local, nunca Oracle Cloud: si apuntara a la nube,
+     * la limpieza borraria justo los datos que se quieren copiar.
+     */
+    static void verificarOrigenLocal(Connection local) throws SQLException {
+        try (Statement st = local.createStatement();
+             ResultSet rs = st.executeQuery("SELECT SYS_CONTEXT('USERENV','CLOUD_SERVICE') FROM dual")) {
+            rs.next();
+            if (rs.getString(1) != null) {
+                throw new IllegalStateException("El origen (PSC_XE_DB_URL) apunta a Oracle Cloud,"
+                        + " no a la base local. No se toco nada.");
             }
         }
     }
