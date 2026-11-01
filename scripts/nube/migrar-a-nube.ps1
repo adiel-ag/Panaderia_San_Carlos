@@ -56,11 +56,15 @@ if (-not $java -or -not (Test-Path -LiteralPath $java)) { throw 'No se encontro 
 $ojdbc = Get-ChildItem (Join-Path $env:USERPROFILE '.m2\repository\com\oracle\database\jdbc\ojdbc17') -Recurse -Filter 'ojdbc17-*.jar' -ErrorAction SilentlyContinue |
     Sort-Object FullName -Descending | Select-Object -First 1
 if (-not $ojdbc) { throw 'No se encontro el driver ojdbc17 (compile el proyecto con Maven). No se toco nada.' }
+# oraclepki permite al driver leer el wallet (cwallet.sso) de Oracle Cloud.
+$pki = Get-ChildItem (Join-Path $env:USERPROFILE '.m2\repository\com\oracle\database\security\oraclepki') -Recurse -Filter 'oraclepki-*.jar' -ErrorAction SilentlyContinue |
+    Sort-Object FullName -Descending | Select-Object -First 1
+if (-not $pki) { throw 'Falta oraclepki: mvn dependency:get -Dartifact=com.oracle.database.security:oraclepki:23.26.3.0.0. No se toco nada.' }
 if (-not (Get-Command sqlplus -ErrorAction SilentlyContinue)) { throw 'No se encontro sqlplus. No se toco nada.' }
 function Copiador([string[]] $argumentos) {
     Push-Location $raiz
     try {
-        & $java -cp $ojdbc.FullName (Join-Path $PSScriptRoot 'CopiarDatosNube.java') @argumentos | Out-Host
+        & $java -cp "$($ojdbc.FullName);$($pki.FullName)" (Join-Path $PSScriptRoot 'CopiarDatosNube.java') @argumentos | Out-Host
         return $LASTEXITCODE
     } finally { Pop-Location }
 }
