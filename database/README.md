@@ -161,7 +161,7 @@ La carpeta `nube/` prepara una Autonomous Database para recibir los datos de la
 base local. Cada script se niega a ejecutarse si no está conectado a Oracle
 Cloud (`solo_nube.sql`), así la base local nunca se modifica por error.
 
-1. `nube/00_limpiar_nube.sql`: deja vacío el esquema de la nube (solo si hubo un intento fallido).
+1. `nube/00_limpiar_nube.sql`: borra solo las 17 tablas y los 7 paquetes de la panadería (por nombre) si hubo un intento fallido; se niega si el usuario es ADMIN.
 2. `nube/01_crear_esquema_nube.sql`: crea las 17 tablas y los 7 paquetes sin datos,
    agrega la columna heredada `USUARIO.PASSWORD_HASH` y desactiva las llaves foráneas.
 3. Copiar **solo los datos** con SQL Developer (Tools → Database Copy, sin DDL).

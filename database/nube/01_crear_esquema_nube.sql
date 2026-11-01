@@ -42,7 +42,11 @@ PROMPT === 2/3 Paquetes
 PROMPT === 3/3 Llaves foraneas desactivadas para la copia
 BEGIN
     FOR c IN (SELECT table_name, constraint_name FROM user_constraints
-               WHERE constraint_type = 'R') LOOP
+               WHERE constraint_type = 'R'
+                 AND table_name IN ('ROL', 'SUCURSAL', 'TIPO_PRODUCTO', 'UNIDAD_MEDIDA',
+                     'USUARIO', 'PRODUCTO', 'RECETA', 'RECETA_DETALLE', 'PEDIDO',
+                     'PEDIDO_DETALLE', 'PRODUCCION', 'PRODUCCION_PEDIDO', 'PRODUCCION_DETALLE',
+                     'INVENTARIO', 'MOVIMIENTO_INVENTARIO', 'DESPACHO', 'USUARIO_CREDENCIAL')) LOOP
         EXECUTE IMMEDIATE 'ALTER TABLE "' || c.table_name || '" DISABLE CONSTRAINT "'
                           || c.constraint_name || '"';
     END LOOP;
@@ -53,9 +57,14 @@ DECLARE
     v_tablas NUMBER;
     v_invalidos NUMBER;
 BEGIN
-    SELECT COUNT(*) INTO v_tablas FROM user_tables;
+    SELECT COUNT(*) INTO v_tablas FROM user_tables
+     WHERE table_name IN ('ROL', 'SUCURSAL', 'TIPO_PRODUCTO', 'UNIDAD_MEDIDA',
+           'USUARIO', 'PRODUCTO', 'RECETA', 'RECETA_DETALLE', 'PEDIDO',
+           'PEDIDO_DETALLE', 'PRODUCCION', 'PRODUCCION_PEDIDO', 'PRODUCCION_DETALLE',
+           'INVENTARIO', 'MOVIMIENTO_INVENTARIO', 'DESPACHO', 'USUARIO_CREDENCIAL');
     SELECT COUNT(*) INTO v_invalidos FROM user_objects
-     WHERE object_type LIKE 'PACKAGE%' AND status <> 'VALID';
+     WHERE object_type LIKE 'PACKAGE%' AND object_name LIKE 'PKG\_%' ESCAPE '\'
+       AND status <> 'VALID';
     IF v_tablas <> 17 OR v_invalidos > 0 THEN
         RAISE_APPLICATION_ERROR(-20999, 'Esquema incompleto: ' || v_tablas
             || ' tablas y ' || v_invalidos || ' paquetes invalidos.');
