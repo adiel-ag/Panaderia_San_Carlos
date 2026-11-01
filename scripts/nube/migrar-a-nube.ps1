@@ -1,0 +1,67 @@
+# Copia la base local (XE) al esquema PANADERIA de Oracle Cloud, de principio a fin:
+#   1. database/nube/00_limpiar_nube.sql   (borra solo objetos de la panaderia en la nube)
+#   2. database/nube/01_crear_esquema_nube.sql
+#   3. CopiarDatosNube.java                (lee XE en solo lectura, copia en una transaccion)
+#   4. database/nube/02_finalizar_nube.sql (llaves foraneas y contadores de ID)
+#   5. Compara las filas de cada tabla entre XE y la nube.
+# La base local nunca se modifica. Las contrasenas no se imprimen.
+# Requiere en .env: PSC_CLOUD_PASSWORD. Opcionales: PSC_CLOUD_WALLET_DIR, PSC_CLOUD_SERVICIO.
+$ErrorActionPreference = 'Stop'
+$raiz = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+
+$envArchivo = @{}
+$rutaEnv = Join-Path $raiz '.env'
+if (Test-Path -LiteralPath $rutaEnv) {
+    foreach ($linea in Get-Content -LiteralPath $rutaEnv) {
+        if ($linea -notmatch '^\s*#' -and $linea -match '^\s*([A-Z_]+)\s*=(.*)$') { $envArchivo[$Matches[1]] = $Matches[2].Trim() }
+    }
+}
+function Valor([string] $nombre, [string] $porDefecto = $null) {
+    foreach ($v in @([Environment]::GetEnvironmentVariable($nombre, 'Process'), $envArchivo[$nombre],
+                     [Environment]::GetEnvironmentVariable($nombre, 'User'),
+                     [Environment]::GetEnvironmentVariable($nombre, 'Machine'))) {
+        if ($v) { return $v }
+    }
+    return $porDefecto
+}
+
+$wallet = Valor 'PSC_CLOUD_WALLET_DIR' 'C:\oracle\wallet_panaderia'
+$servicio = Valor 'PSC_CLOUD_SERVICIO' 'panaderiasancarlos_tp'
+$clave = Valor 'PSC_CLOUD_PASSWORD'
+if (-not $clave) { throw 'Falta PSC_CLOUD_PASSWORD en el archivo .env.' }
+if (-not (Test-Path -LiteralPath (Join-Path $wallet 'cwallet.sso'))) { throw "No se encontro el wallet en $wallet." }
+
+$env:TNS_ADMIN = $wallet
+$env:NLS_LANG = 'SPANISH_SPAIN.AL32UTF8'
+$env:DB_URL = Valor 'DB_URL'; $env:DB_USER = Valor 'DB_USER'; $env:DB_PASSWORD = Valor 'DB_PASSWORD'
+$env:PSC_CLOUD_URL = "jdbc:oracle:thin:@${servicio}?TNS_ADMIN=$($wallet -replace '\\','/')"
+$env:PSC_CLOUD_USER = 'PANADERIA'
+$env:PSC_CLOUD_PASSWORD = $clave
+
+function SqlNube([string] $script) {
+    Push-Location (Join-Path $raiz 'database\nube')
+    try {
+        # La primera linea es relleno: PowerShell 5.1 antepone un BOM a la entrada.
+        "REM inicio`nconnect PANADERIA/`"$clave`"@$servicio`n@$script`nexit" | & sqlplus -s -L /nolog
+        if ($LASTEXITCODE -ne 0) { throw "$script termino con error ($LASTEXITCODE)." }
+    } finally { Pop-Location }
+}
+
+Write-Host '=== 1/4 Limpiando objetos de la panaderia en la nube'
+SqlNube '00_limpiar_nube.sql'
+Write-Host '=== 2/4 Creando tablas y paquetes en la nube'
+SqlNube '01_crear_esquema_nube.sql'
+
+Write-Host '=== 3/4 Copiando datos (la base local solo se lee)'
+$java = Join-Path $env:JAVA_HOME 'bin\java.exe'
+$ojdbc = Get-ChildItem (Join-Path $env:USERPROFILE '.m2\repository\com\oracle\database\jdbc\ojdbc17') -Recurse -Filter 'ojdbc17-*.jar' |
+    Sort-Object FullName -Descending | Select-Object -First 1
+Push-Location $raiz
+try {
+    & $java -cp $ojdbc.FullName (Join-Path $PSScriptRoot 'CopiarDatosNube.java')
+    if ($LASTEXITCODE -ne 0) { throw 'La copia de datos fallo; la nube quedo sin datos (se revirtio).' }
+} finally { Pop-Location }
+
+Write-Host '=== 4/4 Activando llaves y ajustando contadores de ID'
+SqlNube '02_finalizar_nube.sql'
+Write-Host '=== Migracion terminada'
