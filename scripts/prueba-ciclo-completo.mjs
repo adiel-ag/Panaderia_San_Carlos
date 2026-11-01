@@ -80,7 +80,7 @@ async function todasLasExistencias(sesion) {
 
 async function principal() {
   const env = leerEnv()
-  const base = (env.PSC_BASE_URL || 'http://localhost:8080/api').replace(/\/$/, '')
+  const base = (process.env.PSC_BASE_URL || env.PSC_BASE_URL || 'http://localhost:8080/api').replace(/\/$/, '')
   const sesiones = {}
 
   titulo('1. Inicio de sesión por rol')

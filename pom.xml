@@ -51,6 +51,12 @@
             <artifactId>ojdbc17</artifactId>
             <version>${ojdbc.version}</version>
         </dependency>
+        <!-- Lee el wallet (cwallet.sso) de Oracle Cloud Autonomous Database. -->
+        <dependency>
+            <groupId>com.oracle.database.security</groupId>
+            <artifactId>oraclepki</artifactId>
+            <version>${ojdbc.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
