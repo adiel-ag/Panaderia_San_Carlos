@@ -154,3 +154,16 @@ El resto se copió sin cambios, salvo un encabezado que indica su origen.
   datos del negocio y se registran aparte.
 - Contraseñas iniciales: se asignan desde la aplicación, que calcula la huella
   (no se pueden cargar con SQL directo).
+
+## Copiar la base local a Oracle Cloud
+
+La carpeta `nube/` prepara una Autonomous Database para recibir los datos de la
+base local. Cada script se niega a ejecutarse si no está conectado a Oracle
+Cloud (`solo_nube.sql`), así la base local nunca se modifica por error.
+
+1. `nube/00_limpiar_nube.sql`: deja vacío el esquema de la nube (solo si hubo un intento fallido).
+2. `nube/01_crear_esquema_nube.sql`: crea las 17 tablas y los 7 paquetes sin datos,
+   agrega la columna heredada `USUARIO.PASSWORD_HASH` y desactiva las llaves foráneas.
+3. Copiar **solo los datos** con SQL Developer (Tools → Database Copy, sin DDL).
+4. `nube/02_finalizar_nube.sql`: reactiva y valida las llaves foráneas, ajusta los
+   contadores de ID al valor más alto copiado y muestra las filas por tabla.
