@@ -42,10 +42,31 @@ function SqlNube([string] $script) {
     Push-Location (Join-Path $raiz 'database\nube')
     try {
         # La primera linea es relleno: PowerShell 5.1 antepone un BOM a la entrada.
-        "REM inicio`nconnect PANADERIA/`"$clave`"@$servicio`n@$script`nexit" | & sqlplus -s -L /nolog
+        "REM inicio`nWHENEVER SQLERROR EXIT 1`nconnect PANADERIA/`"$clave`"@$servicio`n@$script`nexit" | & sqlplus -s -L /nolog
         if ($LASTEXITCODE -ne 0) { throw "$script termino con error ($LASTEXITCODE)." }
     } finally { Pop-Location }
 }
+
+$java = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME 'bin\java.exe' } else { $null }
+if (-not $java -or -not (Test-Path -LiteralPath $java)) { throw 'No se encontro Java (JAVA_HOME). No se toco nada.' }
+$ojdbc = Get-ChildItem (Join-Path $env:USERPROFILE '.m2\repository\com\oracle\database\jdbc\ojdbc17') -Recurse -Filter 'ojdbc17-*.jar' -ErrorAction SilentlyContinue |
+    Sort-Object FullName -Descending | Select-Object -First 1
+if (-not $ojdbc) { throw 'No se encontro el driver ojdbc17 (compile el proyecto con Maven). No se toco nada.' }
+if (-not (Get-Command sqlplus -ErrorAction SilentlyContinue)) { throw 'No se encontro sqlplus. No se toco nada.' }
+function Copiador([string[]] $argumentos) {
+    Push-Location $raiz
+    try {
+        & $java -cp $ojdbc.FullName (Join-Path $PSScriptRoot 'CopiarDatosNube.java') @argumentos | Out-Host
+        return $LASTEXITCODE
+    } finally { Pop-Location }
+}
+
+# Antes de borrar nada en la nube: Java, driver, conexion local (solo lectura),
+# conexion a la nube como PANADERIA y las 17 tablas locales deben funcionar.
+Write-Host '=== 0/4 Verificacion previa (no escribe nada)'
+if ((Copiador @('--verificar')) -ne 0) { throw 'La verificacion previa fallo. No se toco nada en la nube.' }
+$prueba = "REM inicio`nWHENEVER SQLERROR EXIT 1`nconnect PANADERIA/`"$clave`"@$servicio`nselect 'SQLPLUS_' || 'CONECTADO' from dual;`nexit" | & sqlplus -s -L /nolog
+if ($LASTEXITCODE -ne 0 -or -not ($prueba -match 'SQLPLUS_CONECTADO')) { throw 'sqlplus no pudo conectarse a la nube. No se toco nada.' }
 
 Write-Host '=== 1/4 Limpiando objetos de la panaderia en la nube'
 SqlNube '00_limpiar_nube.sql'
@@ -53,14 +74,7 @@ Write-Host '=== 2/4 Creando tablas y paquetes en la nube'
 SqlNube '01_crear_esquema_nube.sql'
 
 Write-Host '=== 3/4 Copiando datos (la base local solo se lee)'
-$java = Join-Path $env:JAVA_HOME 'bin\java.exe'
-$ojdbc = Get-ChildItem (Join-Path $env:USERPROFILE '.m2\repository\com\oracle\database\jdbc\ojdbc17') -Recurse -Filter 'ojdbc17-*.jar' |
-    Sort-Object FullName -Descending | Select-Object -First 1
-Push-Location $raiz
-try {
-    & $java -cp $ojdbc.FullName (Join-Path $PSScriptRoot 'CopiarDatosNube.java')
-    if ($LASTEXITCODE -ne 0) { throw 'La copia de datos fallo; la nube quedo sin datos (se revirtio).' }
-} finally { Pop-Location }
+if ((Copiador @()) -ne 0) { throw 'La copia de datos fallo; la nube quedo sin datos (se revirtio).' }
 
 Write-Host '=== 4/4 Activando llaves y ajustando contadores de ID'
 SqlNube '02_finalizar_nube.sql'

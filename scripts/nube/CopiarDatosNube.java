@@ -47,6 +47,21 @@ public class CopiarDatosNube {
             local.setReadOnly(true);
             local.setAutoCommit(false);
             nube.setAutoCommit(false);
+            if (args.length > 0 && "--verificar".equals(args[0])) {
+                // Comprobacion previa, sin escribir nada: ambas conexiones funcionan,
+                // la nube es PANADERIA en Oracle Cloud y XE tiene las 17 tablas.
+                verificarDestino(nube);
+                for (String tabla : TABLAS) {
+                    try (Statement st = local.createStatement();
+                         ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM \"" + tabla + "\"")) {
+                        rs.next();
+                        System.out.printf("%-25s %d filas en la base local%n", tabla, rs.getLong(1));
+                    }
+                }
+                local.rollback();
+                System.out.println("=== Verificacion previa correcta: se puede copiar.");
+                return;
+            }
             verificarNube(nube);
             for (String tabla : TABLAS) {
                 long filas = copiar(local, nube, tabla);
@@ -59,14 +74,7 @@ public class CopiarDatosNube {
     }
 
     static void verificarNube(Connection nube) throws SQLException {
-        try (Statement st = nube.createStatement();
-             ResultSet rs = st.executeQuery(
-                     "SELECT USER, SYS_CONTEXT('USERENV','CLOUD_SERVICE') FROM dual")) {
-            rs.next();
-            if (!"PANADERIA".equals(rs.getString(1)) || rs.getString(2) == null) {
-                throw new IllegalStateException("La conexion destino no es PANADERIA en Oracle Cloud.");
-            }
-        }
+        verificarDestino(nube);
         for (String tabla : TABLAS) {
             try (Statement st = nube.createStatement();
                  ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM \"" + tabla + "\"")) {
@@ -75,6 +83,17 @@ public class CopiarDatosNube {
                     throw new IllegalStateException("La tabla " + tabla
                             + " de la nube ya tiene datos; ejecute nube/00 y nube/01 antes de copiar.");
                 }
+            }
+        }
+    }
+
+    static void verificarDestino(Connection nube) throws SQLException {
+        try (Statement st = nube.createStatement();
+             ResultSet rs = st.executeQuery(
+                     "SELECT USER, SYS_CONTEXT('USERENV','CLOUD_SERVICE') FROM dual")) {
+            rs.next();
+            if (!"PANADERIA".equals(rs.getString(1)) || rs.getString(2) == null) {
+                throw new IllegalStateException("La conexion destino no es PANADERIA en Oracle Cloud.");
             }
         }
     }
